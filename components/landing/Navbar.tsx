@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { Menu, X, Sparkles } from "lucide-react";
+import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -15,6 +16,7 @@ export default function Navbar() {
   const [hidden, setHidden] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { scrollY } = useScroll();
+  const { isSignedIn } = useUser();
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const prev = scrollY.getPrevious() ?? 0;
@@ -71,12 +73,22 @@ export default function Navbar() {
 
           {/* Desktop Auth */}
           <div className="hidden items-center gap-3 md:flex">
-            <button className="rounded-full px-5 py-2 text-sm font-medium text-zinc-300 transition-colors hover:text-white">
-              Login
-            </button>
-            <button className="btn-primary !px-5 !py-2 text-sm">
-              Sign Up
-            </button>
+            {!isSignedIn ? (
+              <>
+                <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+                  <button className="rounded-full px-5 py-2 text-sm font-medium text-zinc-300 transition-colors hover:text-white cursor-pointer">
+                    Login
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
+                  <button className="btn-primary !px-5 !py-2 text-sm cursor-pointer">
+                    Sign Up
+                  </button>
+                </SignUpButton>
+              </>
+            ) : (
+              <UserButton afterSignOutUrl="/" userProfileMode="modal" />
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -111,15 +123,24 @@ export default function Navbar() {
                   {link.label}
                 </a>
               ))}
-              <hr className="border-white/10" />
-              <div className="flex gap-2">
-                <button className="flex-1 rounded-full px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white">
-                  Login
-                </button>
-                <button className="btn-primary flex-1 !px-4 !py-2 text-sm">
-                  Sign Up
-                </button>
-              </div>
+              {!isSignedIn ? (
+                <div className="flex gap-2">
+                  <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+                    <button onClick={() => setMobileOpen(false)} className="flex-1 rounded-full px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white text-center cursor-pointer">
+                      Login
+                    </button>
+                  </SignInButton>
+                  <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
+                    <button onClick={() => setMobileOpen(false)} className="btn-primary flex-1 !px-4 !py-2 text-sm text-center cursor-pointer">
+                      Sign Up
+                    </button>
+                  </SignUpButton>
+                </div>
+              ) : (
+                <div className="flex justify-center">
+                  <UserButton afterSignOutUrl="/" userProfileMode="modal" />
+                </div>
+              )}
             </div>
           </motion.div>
         )}

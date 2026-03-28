@@ -1,24 +1,35 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from 'next'
+import { ClerkProvider } from '@clerk/nextjs'
+import { Geist, Geist_Mono } from 'next/font/google'
+import './globals.css'
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+})
+
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
 
 export const metadata: Metadata = {
-  title: "AI Interviewer — Crack Interviews with AI",
-  description:
-    "Practice real-time AI interviews based on your resume. Get instant feedback, performance analytics, and personalized improvement suggestions.",
-  keywords: ["AI interview", "mock interview", "resume", "career", "practice"],
-};
+  title: 'AI Interviewer - Master Your Interview Skills',
+  description: 'Practice mock interviews with AI-powered feedback to ace your job interviews',
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="antialiased">{children}</body>
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ClerkProvider>
+          {children}
+        </ClerkProvider>
+      </body>
     </html>
-  );
+  )
 }
