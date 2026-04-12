@@ -49,20 +49,20 @@ export default function HowItWorksSection() {
   return (
     <section
       id="how-it-works"
-      className="relative px-4 py-24 sm:px-6 lg:px-8"
+      className="relative py-16 sm:py-20 md:py-24 overflow-x-hidden w-full"
     >
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 w-full px-3 sm:px-4 md:px-6 lg:px-8 w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6 }}
-          className="mb-16 text-center"
+          className="mb-12 sm:mb-14 md:mb-16 text-center"
         >
-          <h2 className="mb-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h2 className="mb-3 sm:mb-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight">
             How It <span className="gradient-text">Works</span>
           </h2>
-          <p className="mx-auto max-w-2xl text-lg text-zinc-400">
+          <p className="mx-auto max-w-2xl text-sm sm:text-base md:text-lg text-zinc-400">
             Get started in three simple steps. No complex setup, no hassle.
           </p>
         </motion.div>
@@ -72,7 +72,7 @@ export default function HowItWorksSection() {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          className="relative grid gap-8 md:grid-cols-3"
+          className="relative grid gap-6 sm:gap-8 grid-cols-1 md:grid-cols-3"
         >
           {/* Connecting line */}
           <div
@@ -90,19 +90,19 @@ export default function HowItWorksSection() {
               className="relative text-center"
             >
               {/* Number badge */}
-              <div className="relative mx-auto mb-6">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/10 border border-orange-500/20">
-                  <step.icon className="h-8 w-8 text-orange-400" />
+              <div className="relative mx-auto mb-4 sm:mb-6">
+                <div className="mx-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/10 border border-orange-500/20">
+                  <step.icon className="h-6 w-6 sm:h-8 sm:w-8 text-orange-400" />
                 </div>
-                <span className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-500 text-xs font-bold text-white">
+                <span className="absolute -top-2 -right-2 flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-500 text-xs font-bold text-white">
                   {step.number}
                 </span>
               </div>
 
-              <h3 className="mb-3 text-xl font-bold text-white">
+              <h3 className="mb-2 sm:mb-3 text-lg sm:text-xl font-bold text-white">
                 {step.title}
               </h3>
-              <p className="mx-auto max-w-xs text-sm leading-relaxed text-zinc-400">
+              <p className="mx-auto max-w-xs text-xs sm:text-sm leading-relaxed text-zinc-400">
                 {step.description}
               </p>
             </motion.div>

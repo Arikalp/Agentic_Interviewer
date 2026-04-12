@@ -33,32 +33,32 @@ const skills = [
 
 export default function InsightsSection() {
   return (
-    <section id="insights" className="relative px-4 py-24 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+    <section id="insights" className="relative py-16 sm:py-20 md:py-24 overflow-x-hidden w-full">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 w-full px-3 sm:px-4 md:px-6 lg:px-8 w-full">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6 }}
-          className="mb-16 text-center"
+          className="mb-12 sm:mb-14 md:mb-16 text-center"
         >
-          <h2 className="mb-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h2 className="mb-3 sm:mb-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight">
             Actionable <span className="gradient-text">Insights</span>
           </h2>
-          <p className="mx-auto max-w-2xl text-lg text-zinc-400">
+          <p className="mx-auto max-w-2xl text-sm sm:text-base md:text-lg text-zinc-400">
             Get data-driven feedback that helps you improve with every practice
             session.
           </p>
         </motion.div>
 
-        <div className="grid items-center gap-12 lg:grid-cols-2">
+        <div className="grid items-center gap-8 sm:gap-10 md:gap-12 lg:grid-cols-2">
           {/* Left — Benefits */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.6 }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-5 md:space-y-6"
           >
             {benefits.map((b, i) => (
               <motion.div
@@ -67,16 +67,16 @@ export default function InsightsSection() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.15, duration: 0.5 }}
-                className="glass-card glass-card-hover flex gap-4 rounded-2xl p-5"
+                className="glass-card glass-card-hover flex gap-3 sm:gap-4 rounded-lg sm:rounded-2xl p-4 sm:p-5"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/10">
-                  <b.icon className="h-6 w-6 text-orange-400" />
+                <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/10">
+                  <b.icon className="h-5 w-5 sm:h-6 sm:w-6 text-orange-400" />
                 </div>
                 <div>
-                  <h3 className="mb-1 text-base font-bold text-white">
+                  <h3 className="mb-0.5 sm:mb-1 text-sm sm:text-base font-bold text-white">
                     {b.title}
                   </h3>
-                  <p className="text-sm leading-relaxed text-zinc-400">
+                  <p className="text-xs sm:text-sm leading-relaxed text-zinc-400">
                     {b.description}
                   </p>
                 </div>
@@ -91,21 +91,21 @@ export default function InsightsSection() {
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.6 }}
           >
-            <div className="glass-card rounded-2xl p-6">
+            <div className="glass-card rounded-lg sm:rounded-2xl p-4 sm:p-6">
               {/* Header */}
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-orange-400" />
-                  <h3 className="font-bold text-white">Performance Overview</h3>
+                  <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-orange-400" />
+                  <h3 className="text-sm sm:text-base font-bold text-white">Performance Overview</h3>
                 </div>
-                <span className="rounded-full bg-green-500/15 px-3 py-1 text-xs font-medium text-green-400">
+                <span className="rounded-full bg-green-500/15 px-2.5 sm:px-3 py-0.5 sm:py-1 text-xs font-medium text-green-400 w-fit">
                   +12% this week
                 </span>
               </div>
 
               {/* Overall score */}
-              <div className="mb-8 text-center">
-                <div className="relative mx-auto mb-3 flex h-28 w-28 items-center justify-center">
+              <div className="mb-6 sm:mb-8 text-center">
+                <div className="relative mx-auto mb-2 sm:mb-3 flex h-20 w-20 sm:h-28 sm:w-28 items-center justify-center">
                   <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
                     <circle
                       cx="50"
@@ -136,26 +136,26 @@ export default function InsightsSection() {
                       </linearGradient>
                     </defs>
                   </svg>
-                  <span className="absolute text-2xl font-extrabold text-white">
+                  <span className="absolute text-lg sm:text-2xl font-extrabold text-white">
                     79%
                   </span>
                 </div>
-                <p className="text-sm text-zinc-400">Overall Interview Score</p>
+                <p className="text-xs sm:text-sm text-zinc-400">Overall Interview Score</p>
               </div>
 
               {/* Skill bars */}
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {skills.map((skill, i) => (
                   <div key={skill.label}>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span className="text-sm text-zinc-300">
+                    <div className="mb-1 sm:mb-1.5 flex items-center justify-between">
+                      <span className="text-xs sm:text-sm text-zinc-300">
                         {skill.label}
                       </span>
-                      <span className="text-sm font-semibold text-zinc-400">
+                      <span className="text-xs sm:text-sm font-semibold text-zinc-400">
                         {skill.value}%
                       </span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-white/5">
+                    <div className="h-1.5 sm:h-2 overflow-hidden rounded-full bg-white/5">
                       <motion.div
                         className={`h-full rounded-full bg-gradient-to-r ${skill.color}`}
                         initial={{ width: 0 }}

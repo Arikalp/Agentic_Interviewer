@@ -10,7 +10,7 @@ export default function CTASection() {
   const ctaHref = isSignedIn ? "/dashboard" : "/auth/login";
 
   return (
-    <section className="relative px-4 py-24 sm:px-6 lg:px-8">
+    <section className="relative py-16 sm:py-20 md:py-24 overflow-x-hidden w-full">
       {/* Background glow */}
       <div className="pointer-events-none absolute inset-0">
         <div
@@ -22,14 +22,15 @@ export default function CTASection() {
         />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6 }}
-        className="relative mx-auto max-w-4xl"
-      >
-        <div className="glass-card overflow-hidden rounded-3xl p-12 text-center sm:p-16">
+      <div className="relative mx-auto max-w-4xl px-3 sm:px-4 md:px-6 lg:px-8 w-full">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6 }}
+          className="relative"
+        >
+        <div className="glass-card overflow-hidden rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-12 text-center lg:p-16">
           {/* Inner top glow */}
           <div
             className="pointer-events-none absolute top-0 left-1/2 h-[2px] w-1/2 -translate-x-1/2"
@@ -39,11 +40,11 @@ export default function CTASection() {
             }}
           />
 
-          <h2 className="mb-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h2 className="mb-3 sm:mb-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight">
             Start Your AI Interview{" "}
             <span className="gradient-text">Today</span>
           </h2>
-          <p className="mx-auto mb-8 max-w-lg text-lg text-zinc-400">
+          <p className="mx-auto mb-6 sm:mb-8 max-w-lg text-sm sm:text-base md:text-lg text-zinc-400">
             Join thousands of candidates who have improved their interview
             skills and landed their dream jobs with Intervo.
           </p>
@@ -54,18 +55,19 @@ export default function CTASection() {
           >
             <Link
               href={ctaHref}
-              className="btn-primary inline-flex items-center gap-2 text-lg !px-8 !py-4"
+              className="btn-primary inline-flex items-center justify-center gap-2 text-sm sm:text-base md:text-lg px-6 sm:px-8 py-2.5 sm:py-4"
             >
               Get Started Free
-              <ArrowRight className="h-5 w-5" />
+              <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
             </Link>
           </motion.div>
 
-          <p className="mt-4 text-sm text-zinc-500">
+          <p className="mt-4 text-xs sm:text-sm text-zinc-500">
             No credit card required • Free forever plan
           </p>
         </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </section>
   );
 }
