@@ -13,6 +13,12 @@ const navLinks = [
   { label: "Insights", href: "#insights" },
 ];
 
+const appNavLinks = [
+  { label: "Interview", href: "/interview" },
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "Profile", href: "/profile" },
+];
+
 export default function Navbar() {
   const [hidden, setHidden] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -62,14 +68,14 @@ export default function Navbar() {
           {/* Desktop Nav Links */}
           {isSignedIn ? (
             <div className="hidden items-center gap-8 md:flex">
-              {navLinks.map((link) => (
-                <a
+              {appNavLinks.map((link) => (
+                <Link
                   key={link.href}
                   href={link.href}
                   className="text-sm font-medium text-zinc-400 transition-colors hover:text-white"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
             </div>
           ) : null}
@@ -129,15 +135,15 @@ export default function Navbar() {
             }}
           >
             <div className="flex flex-col gap-3">
-              {navLinks.map((link) => (
-                <a
+              {appNavLinks.map((link) => (
+                <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
                   className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
               <Link
                 href="/profile"
