@@ -8,6 +8,7 @@ import {
   BadgeCheck,
   CalendarDays,
   ChevronLeft,
+  ChevronRight,
   FileText,
   Target,
   TrendingUp,
@@ -62,6 +63,8 @@ export default function ProfilePage() {
   const [loadingInterviews, setLoadingInterviews] = useState(true);
   const [overallAverage, setOverallAverage] = useState(0);
   const [interviewsError, setInterviewsError] = useState('');
+  const [currentSessionPage, setCurrentSessionPage] = useState(1);
+  const sessionsPerPage = 5;
 
   if (isLoaded && !isSignedIn) {
     redirect('/');
@@ -295,44 +298,72 @@ export default function ProfilePage() {
                   No interviews yet. Start your first interview to see scores here!
                 </p>
               ) : (
-                interviewSessions.map((session) => (
-                  <article
-                    key={session.id}
-                    className="rounded-xl border border-zinc-800 bg-black/20 p-4 transition-colors hover:border-[#f97316]/40"
-                  >
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm text-zinc-400">{session.date}</p>
-                        <p className="text-xs text-zinc-500">{session.questionsCount} questions answered</p>
+                <>
+                  {interviewSessions.slice((currentSessionPage - 1) * sessionsPerPage, currentSessionPage * sessionsPerPage).map((session) => (
+                    <article
+                      key={session.id}
+                      className="rounded-xl border border-zinc-800 bg-black/20 p-4 transition-colors hover:border-[#f97316]/40"
+                    >
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm text-zinc-400">{session.date}</p>
+                          <p className="text-xs text-zinc-500">{session.questionsCount} questions answered</p>
+                        </div>
+                        <span className="rounded-full bg-[#f97316]/15 px-3 py-1 text-xs font-medium text-[#fb923c]">
+                          Score: {session.score}/100
+                        </span>
                       </div>
-                      <span className="rounded-full bg-[#f97316]/15 px-3 py-1 text-xs font-medium text-[#fb923c]">
-                        Score: {session.score}/100
+
+                      {session.strengths.length > 0 ? (
+                        <div className="mb-3">
+                          <p className="mb-2 text-sm font-medium text-zinc-300">Strengths</p>
+                          <ul className="space-y-1 text-sm text-zinc-400">
+                            {session.strengths.map((point) => (
+                              <li key={point}>• {point}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {session.improvementAreas.length > 0 ? (
+                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
+                          <p className="font-medium mb-1">Areas to improve:</p>
+                          <ul className="space-y-1 text-sm">
+                            {session.improvementAreas.map((area) => (
+                              <li key={area}>• {area}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                  
+                  {Math.ceil(interviewSessions.length / sessionsPerPage) > 1 && (
+                    <div className="mt-4 flex items-center justify-between border-t border-zinc-800 pt-4">
+                      <span className="text-xs text-zinc-500">
+                        Page {currentSessionPage} of {Math.ceil(interviewSessions.length / sessionsPerPage)} • Total: {interviewSessions.length} sessions
                       </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCurrentSessionPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentSessionPage === 1}
+                          className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => setCurrentSessionPage((prev) => Math.min(Math.ceil(interviewSessions.length / sessionsPerPage), prev + 1))}
+                          disabled={currentSessionPage >= Math.ceil(interviewSessions.length / sessionsPerPage)}
+                          className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-
-                    {session.strengths.length > 0 ? (
-                      <div className="mb-3">
-                        <p className="mb-2 text-sm font-medium text-zinc-300">Strengths</p>
-                        <ul className="space-y-1 text-sm text-zinc-400">
-                          {session.strengths.map((point) => (
-                            <li key={point}>• {point}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-
-                    {session.improvementAreas.length > 0 ? (
-                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
-                        <p className="font-medium mb-1">Areas to improve:</p>
-                        <ul className="space-y-1 text-sm">
-                          {session.improvementAreas.map((area) => (
-                            <li key={area}>• {area}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </article>
-                ))
+                  )}
+                </>
               )}
             </div>
           </section>

@@ -9,6 +9,8 @@ import {
   CalendarClock,
   ChartNoAxesCombined,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   FileText,
   Sparkles,
@@ -32,6 +34,8 @@ export default function DashboardPage() {
   const [overallAverage, setOverallAverage] = useState(0);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [sessionsError, setSessionsError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -197,18 +201,46 @@ export default function DashboardPage() {
                   No interviews yet. Start your first interview to see results here!
                 </p>
               ) : (
-                sessions.map((session) => (
-                  <div key={session.id} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-black/20 p-4">
-                    <div>
-                      <p className="font-medium text-white">Interview Session</p>
-                      <p className="text-xs text-zinc-500">{session.date}</p>
-                      <p className="text-xs text-zinc-600">{session.questionsCount} questions answered</p>
+                <>
+                  {sessions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((session) => (
+                    <div key={session.id} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-black/20 p-4">
+                      <div>
+                        <p className="font-medium text-white">Interview Session</p>
+                        <p className="text-xs text-zinc-500">{session.date}</p>
+                        <p className="text-xs text-zinc-600">{session.questionsCount} questions answered</p>
+                      </div>
+                      <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-semibold text-orange-300">
+                        {session.score}/100
+                      </span>
                     </div>
-                    <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-semibold text-orange-300">
-                      {session.score}/100
-                    </span>
-                  </div>
-                ))
+                  ))}
+                  
+                  {Math.ceil(sessions.length / itemsPerPage) > 1 && (
+                    <div className="mt-4 flex items-center justify-between border-t border-zinc-800 pt-4">
+                      <span className="text-xs text-zinc-500">
+                        Page {currentPage} of {Math.ceil(sessions.length / itemsPerPage)} • Total: {sessions.length} sessions
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => setCurrentPage((prev) => Math.min(Math.ceil(sessions.length / itemsPerPage), prev + 1))}
+                          disabled={currentPage >= Math.ceil(sessions.length / itemsPerPage)}
+                          className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </article>
