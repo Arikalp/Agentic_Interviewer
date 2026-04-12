@@ -24,39 +24,6 @@ type EvaluatedAnswer = {
   evaluation: AnswerEvaluation;
 };
 
-type BrowserSpeechRecognition = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-
-type SpeechRecognitionEvent = {
-  resultIndex: number;
-  results: ArrayLike<{
-    isFinal: boolean;
-    0: {
-      transcript: string;
-    };
-  }>;
-};
-
-type SpeechRecognitionErrorEvent = {
-  error: string;
-};
-
-type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
-
 export default function InterviewPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useUser();
@@ -64,7 +31,6 @@ export default function InterviewPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
-  const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
 
   const [permissionError, setPermissionError] = useState('');
   const [isCameraOn, setIsCameraOn] = useState(false);
@@ -81,10 +47,8 @@ export default function InterviewPage() {
   const [answerText, setAnswerText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [transcriptionSupported, setTranscriptionSupported] = useState(false);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState('');
   const [recordedAudioMimeType, setRecordedAudioMimeType] = useState('audio/webm');
-  const [isTranscriptionOnlyMode, setIsTranscriptionOnlyMode] = useState(false);
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<EvaluatedAnswer[]>([]);
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
   const [evaluationError, setEvaluationError] = useState('');
@@ -145,44 +109,6 @@ export default function InterviewPage() {
 
         setIsCameraOn(stream.getVideoTracks().some((track) => track.enabled));
         setIsMicOn(stream.getAudioTracks().some((track) => track.enabled));
-
-        const SpeechRecognitionImpl =
-          window.SpeechRecognition || window.webkitSpeechRecognition;
-
-        if (SpeechRecognitionImpl) {
-          setTranscriptionSupported(true);
-          const recognition = new SpeechRecognitionImpl();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          recognition.lang = 'en-US';
-
-          recognition.onresult = (event: SpeechRecognitionEvent) => {
-            let nextTranscript = '';
-
-            for (let i = event.resultIndex; i < event.results.length; i += 1) {
-              nextTranscript += event.results[i][0].transcript;
-            }
-
-            setAnswerText((prev) => {
-              if (!nextTranscript.trim()) {
-                return prev;
-              }
-
-              if (prev.trim().length === 0) {
-                return nextTranscript.trim();
-              }
-
-              return `${prev.trim()} ${nextTranscript.trim()}`;
-            });
-          };
-
-          recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-            setEvaluationError(`Speech recognition error: ${event.error}`);
-            setIsTranscribing(false);
-          };
-
-          speechRecognitionRef.current = recognition;
-        }
       } catch {
         setPermissionError(
           'Camera and microphone permission is required to start interview mode. Please allow access and refresh.',
@@ -225,10 +151,6 @@ export default function InterviewPage() {
     return () => {
       mounted = false;
 
-      if (speechRecognitionRef.current) {
-        speechRecognitionRef.current.stop();
-      }
-
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -258,29 +180,21 @@ export default function InterviewPage() {
     setEvaluationError('');
     setRecordedAudioUrl('');
     setAnswerText('');
-    setIsTranscriptionOnlyMode(false);
 
     if (typeof MediaRecorder === 'undefined') {
-      if (speechRecognitionRef.current) {
-        try {
-          speechRecognitionRef.current.start();
-          setIsTranscribing(true);
-          setIsTranscriptionOnlyMode(true);
-          setEvaluationError(
-            'Audio recording is not supported in this browser. Running in transcription-only mode.',
-          );
-          return;
-        } catch {
-          setEvaluationError('Audio recording and speech-to-text are not supported in this browser.');
-          return;
-        }
-      }
-
       setEvaluationError('Audio recording is not supported in this browser.');
       return;
     }
 
     recordedChunksRef.current = [];
+    const audioTracks = stream.getAudioTracks();
+    const audioOnlyStream = audioTracks.length > 0 ? new MediaStream(audioTracks) : null;
+
+    if (!audioOnlyStream) {
+      setEvaluationError('Microphone audio is not available. Please allow microphone access.');
+      return;
+    }
+
     const preferredMimeTypes = [
       'audio/webm;codecs=opus',
       'audio/webm',
@@ -293,11 +207,11 @@ export default function InterviewPage() {
     let recorder: MediaRecorder;
     try {
       recorder = supportedMimeType
-        ? new MediaRecorder(stream, { mimeType: supportedMimeType })
-        : new MediaRecorder(stream);
+        ? new MediaRecorder(audioOnlyStream, { mimeType: supportedMimeType })
+        : new MediaRecorder(audioOnlyStream);
     } catch {
       setEvaluationError(
-        'Could not initialize audio recording on this device/browser. Try Chrome or Edge and allow mic access.',
+        'Could not initialize microphone recording on this device/browser. Try Chrome or Edge and allow mic access.',
       );
       return;
     }
@@ -315,6 +229,43 @@ export default function InterviewPage() {
         const nextUrl = URL.createObjectURL(audioBlob);
         setRecordedAudioUrl(nextUrl);
         setRecordedAudioMimeType(blobType);
+
+        const formData = new FormData();
+        const fileExtension = blobType.includes('mp4')
+          ? 'mp4'
+          : blobType.includes('ogg')
+            ? 'ogg'
+            : 'webm';
+        formData.append('audio', audioBlob, `answer.${fileExtension}`);
+
+        setIsTranscribing(true);
+        fetch('/api/interview/transcribe', {
+          method: 'POST',
+          body: formData,
+        })
+          .then(async (response) => {
+            const data = (await response.json().catch(() => ({}))) as { text?: string; error?: string };
+
+            if (!response.ok) {
+              throw new Error(data?.error || 'Failed to transcribe audio.');
+            }
+
+            const transcript = data.text?.trim() || '';
+            if (transcript) {
+              setAnswerText((prev) => {
+                const existing = prev.trim();
+                return existing.length > 0 ? `${existing} ${transcript}` : transcript;
+              });
+            }
+          })
+          .catch((error) => {
+            const message =
+              error instanceof Error ? error.message : 'Failed to transcribe audio.';
+            setEvaluationError(message);
+          })
+          .finally(() => {
+            setIsTranscribing(false);
+          });
       }
     };
 
@@ -331,37 +282,12 @@ export default function InterviewPage() {
       recorder.start();
       setIsRecording(true);
     } catch {
-      if (speechRecognitionRef.current) {
-        try {
-          speechRecognitionRef.current.start();
-          setIsTranscribing(true);
-          setIsTranscriptionOnlyMode(true);
-          setEvaluationError(
-            'Failed to start audio recording. Switched to transcription-only mode.',
-          );
-          return;
-        } catch {
-          setEvaluationError(
-            'Failed to start recording. Your browser may not support this recording format.',
-          );
-          return;
-        }
-      }
-
       setEvaluationError(
         'Failed to start recording. Your browser may not support this recording format.',
       );
       return;
     }
 
-    if (speechRecognitionRef.current) {
-      try {
-        speechRecognitionRef.current.start();
-        setIsTranscribing(true);
-      } catch {
-        setIsTranscribing(false);
-      }
-    }
   };
 
   const stopAnswerCapture = () => {
@@ -369,12 +295,7 @@ export default function InterviewPage() {
       mediaRecorderRef.current.stop();
     }
 
-    if (speechRecognitionRef.current) {
-      speechRecognitionRef.current.stop();
-    }
-
     setIsRecording(false);
-    setIsTranscribing(false);
   };
 
   const submitAnswerForScoring = async () => {
@@ -568,15 +489,9 @@ export default function InterviewPage() {
 
               <p className="mt-2 text-xs text-zinc-500">
                 {isRecording
-                  ? 'Recording in progress...'
-                  : isTranscriptionOnlyMode
-                    ? 'Transcription-only capture in progress...'
-                    : 'Use recording or type answer manually before submit.'}
-                {transcriptionSupported
-                  ? isTranscribing
-                    ? ' Live transcription on.'
-                    : ' Live transcription available.'
-                  : ' Speech-to-text is not supported in this browser.'}
+                  ? 'Recording in progress. Whisper transcription starts after you stop.'
+                  : 'Use recording or type answer manually before submit.'}
+                {isTranscribing ? ' Transcribing with Whisper...' : ' Whisper transcription ready.'}
               </p>
 
               {recordedAudioUrl ? (
