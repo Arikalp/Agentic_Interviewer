@@ -65,9 +65,12 @@ export default function DashboardPage() {
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3">
-                <button className="rounded-full bg-linear-to-r from-orange-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:shadow-[0_0_24px_rgba(249,115,22,0.4)]">
+                <Link
+                  href="/interview"
+                  className="rounded-full bg-linear-to-r from-orange-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:shadow-[0_0_24px_rgba(249,115,22,0.4)]"
+                >
                   Start New Interview
-                </button>
+                </Link>
                 <Link
                   href="/"
                   className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-5 py-2.5 text-sm font-semibold text-zinc-200 transition hover:border-zinc-500 hover:text-white"
