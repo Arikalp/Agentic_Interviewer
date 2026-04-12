@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SignOutButton, useClerk, useUser } from '@clerk/nextjs';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -21,6 +21,16 @@ type InterviewSession = {
   score: number;
   highlights: string[];
   improveOn: string;
+};
+
+type ResumeInsights = {
+  summary: string;
+  skills: string[];
+  strengths: string[];
+  improvementAreas: string[];
+  suggestedRoles: string[];
+  interviewFocus: string[];
+  estimatedExperienceYears: number;
 };
 
 const mockInterviewSessions: InterviewSession[] = [
@@ -70,6 +80,11 @@ export default function ProfilePage() {
   const { isLoaded, isSignedIn, user } = useUser();
   const [selectedResume, setSelectedResume] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState('');
+  const [analysisError, setAnalysisError] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [resumeInsights, setResumeInsights] = useState<ResumeInsights | null>(null);
+  const [insightsUpdatedAt, setInsightsUpdatedAt] = useState<string | null>(null);
+  const [loadingInsights, setLoadingInsights] = useState(true);
 
   if (isLoaded && !isSignedIn) {
     redirect('/');
@@ -81,12 +96,47 @@ export default function ProfilePage() {
   }, []);
 
   const topSuggestions = useMemo(() => {
+    if (resumeInsights?.interviewFocus && resumeInsights.interviewFocus.length > 0) {
+      return resumeInsights.interviewFocus;
+    }
+
     return [
       'Practice one behavioral answer daily using the STAR method.',
       'For technical questions, start with trade-offs before implementation details.',
       'Track metrics from your projects so your examples are outcome-focused.',
     ];
-  }, []);
+  }, [resumeInsights]);
+
+  useEffect(() => {
+    async function loadInsights() {
+      if (!isLoaded || !isSignedIn) {
+        return;
+      }
+
+      try {
+        setLoadingInsights(true);
+        const response = await fetch('/api/resume');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to load resume insights.');
+        }
+
+        if (data?.insights) {
+          setResumeInsights(data.insights as ResumeInsights);
+          setInsightsUpdatedAt(data?.metadata?.updatedAt || null);
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to load existing resume insights.';
+        setAnalysisError(message);
+      } finally {
+        setLoadingInsights(false);
+      }
+    }
+
+    loadInsights();
+  }, [isLoaded, isSignedIn]);
 
   const onResumeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -106,6 +156,41 @@ export default function ProfilePage() {
 
     setSelectedResume(file);
     setUploadError('');
+    setAnalysisError('');
+  };
+
+  const onAnalyzeResume = async () => {
+    if (!selectedResume) {
+      setAnalysisError('Please select a resume before analyzing.');
+      return;
+    }
+
+    try {
+      setIsAnalyzing(true);
+      setAnalysisError('');
+
+      const formData = new FormData();
+      formData.append('resume', selectedResume);
+
+      const response = await fetch('/api/resume', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Resume analysis failed.');
+      }
+
+      setResumeInsights(data.insights as ResumeInsights);
+      setInsightsUpdatedAt(data.updatedAt || null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to analyze resume.';
+      setAnalysisError(message);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   if (!isLoaded) {
@@ -174,6 +259,12 @@ export default function ProfilePage() {
               <div className="rounded-xl border border-zinc-800 bg-black/20 p-3">
                 <p className="text-zinc-500">Average Interview Score</p>
                 <p className="font-medium text-white">{averageScore}/100</p>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-black/20 p-3">
+                <p className="text-zinc-500">Estimated Experience</p>
+                <p className="font-medium text-white">
+                  {resumeInsights ? `${resumeInsights.estimatedExperienceYears} years` : 'Analyze resume'}
+                </p>
               </div>
             </div>
           </section>
@@ -274,20 +365,34 @@ export default function ProfilePage() {
             >
               <FileText className="h-8 w-8 text-zinc-400" />
               <p className="text-sm text-zinc-300">Click to select your resume</p>
-              <p className="text-xs text-zinc-500">Accepted formats: PDF, DOC, DOCX</p>
+              <p className="text-xs text-zinc-500">Accepted formats: PDF, DOCX, TXT</p>
             </label>
 
             <input
               id="resume-upload"
               type="file"
-              accept=".pdf,.doc,.docx"
+              accept=".pdf,.docx,.txt"
               onChange={onResumeChange}
               className="hidden"
             />
 
+            <button
+              onClick={onAnalyzeResume}
+              disabled={!selectedResume || isAnalyzing}
+              className="mb-3 w-full rounded-lg bg-linear-to-r from-orange-500 to-amber-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {isAnalyzing ? 'Analyzing Resume...' : 'Analyze Resume'}
+            </button>
+
             {uploadError ? (
               <p className="rounded-lg border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-300">
                 {uploadError}
+              </p>
+            ) : null}
+
+            {analysisError ? (
+              <p className="mb-3 rounded-lg border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-300">
+                {analysisError}
               </p>
             ) : null}
 
@@ -303,6 +408,72 @@ export default function ProfilePage() {
             )}
           </section>
         </div>
+
+        <section className="mt-6 rounded-2xl border border-zinc-800 bg-linear-to-br from-[#151515] to-[#0f0f0f] p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-white">AI Resume Insights</h2>
+            {insightsUpdatedAt ? (
+              <span className="text-xs text-zinc-500">
+                Updated: {new Date(insightsUpdatedAt).toLocaleString()}
+              </span>
+            ) : null}
+          </div>
+
+          {loadingInsights ? (
+            <p className="text-sm text-zinc-500">Loading resume insights...</p>
+          ) : null}
+
+          {!loadingInsights && !resumeInsights ? (
+            <p className="text-sm text-zinc-500">
+              No analyzed resume found. Upload and analyze your resume to unlock personalized guidance.
+            </p>
+          ) : null}
+
+          {resumeInsights ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-zinc-800 bg-black/20 p-4 lg:col-span-2">
+                <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">Summary</p>
+                <p className="text-sm text-zinc-300">{resumeInsights.summary}</p>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-black/20 p-4">
+                <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">Top Skills</p>
+                <ul className="space-y-1 text-sm text-zinc-300">
+                  {resumeInsights.skills.map((skill) => (
+                    <li key={skill}>• {skill}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-black/20 p-4">
+                <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">Suggested Roles</p>
+                <ul className="space-y-1 text-sm text-zinc-300">
+                  {resumeInsights.suggestedRoles.map((role) => (
+                    <li key={role}>• {role}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-black/20 p-4">
+                <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">Strengths</p>
+                <ul className="space-y-1 text-sm text-zinc-300">
+                  {resumeInsights.strengths.map((strength) => (
+                    <li key={strength}>• {strength}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-black/20 p-4">
+                <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">Improvement Areas</p>
+                <ul className="space-y-1 text-sm text-zinc-300">
+                  {resumeInsights.improvementAreas.map((area) => (
+                    <li key={area}>• {area}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ) : null}
+        </section>
       </div>
     </div>
   );
