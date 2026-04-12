@@ -48,13 +48,13 @@ export default function HeroSection() {
             </p>
 
             <div className="flex flex-wrap gap-4">
-              <a href="#demo" className="btn-primary flex items-center gap-2 text-base">
+              <a href="/interview" className="btn-primary flex items-center gap-2 text-base">
                 Start Interview
                 <Play className="h-4 w-4" />
               </a>
-              <a href="#demo" className="btn-secondary flex items-center gap-2 text-base">
+              <a href="/dashboard" className="btn-secondary flex items-center gap-2 text-base">
                 <Play className="h-4 w-4" />
-                Watch Demo
+                Go to Dashboard
               </a>
             </div>
 

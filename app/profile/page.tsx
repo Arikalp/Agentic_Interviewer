@@ -67,7 +67,7 @@ export default function ProfilePage() {
   const sessionsPerPage = 5;
 
   if (isLoaded && !isSignedIn) {
-    redirect('/');
+    redirect('/auth/login');
   }
 
   const averageScore = overallAverage;

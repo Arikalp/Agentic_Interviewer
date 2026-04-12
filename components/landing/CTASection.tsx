@@ -1,9 +1,14 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 export default function CTASection() {
+  const { isLoaded, isSignedIn } = useUser();
+  const ctaHref = isSignedIn ? "/dashboard" : "/auth/login";
+
   return (
     <section className="relative px-4 py-24 sm:px-6 lg:px-8">
       {/* Background glow */}
@@ -43,14 +48,18 @@ export default function CTASection() {
             skills and landed their dream jobs with AI Interviewer.
           </p>
 
-          <motion.button
+          <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.98 }}
-            className="btn-primary inline-flex items-center gap-2 text-lg !px-8 !py-4"
           >
-            Get Started Free
-            <ArrowRight className="h-5 w-5" />
-          </motion.button>
+            <Link
+              href={ctaHref}
+              className="btn-primary inline-flex items-center gap-2 text-lg !px-8 !py-4"
+            >
+              Get Started Free
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+          </motion.div>
 
           <p className="mt-4 text-sm text-zinc-500">
             No credit card required • Free forever plan

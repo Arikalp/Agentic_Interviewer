@@ -39,7 +39,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      router.replace('/');
+      router.replace('/auth/login');
     }
   }, [isLoaded, isSignedIn, router]);
 
