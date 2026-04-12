@@ -55,7 +55,7 @@ export default function Navbar() {
               <Sparkles className="h-4 w-4 text-white" />
             </div>
             <span className="text-lg font-bold text-white">
-              AI <span className="gradient-text">Interviewer</span>
+              Intervo
             </span>
           </a>
 

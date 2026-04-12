@@ -95,7 +95,7 @@ export default function DemoSection() {
                         <Mic className="h-3 w-3 text-white" />
                       </div>
                       <span className="text-xs font-semibold text-orange-400">
-                        AI Interviewer
+                        Intervo
                       </span>
                       <span className="text-[10px] text-zinc-600">
                         just now

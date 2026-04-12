@@ -45,7 +45,7 @@ export default function CTASection() {
           </h2>
           <p className="mx-auto mb-8 max-w-lg text-lg text-zinc-400">
             Join thousands of candidates who have improved their interview
-            skills and landed their dream jobs with AI Interviewer.
+            skills and landed their dream jobs with Intervo.
           </p>
 
           <motion.div

@@ -13,7 +13,7 @@ export default function Footer() {
               <Sparkles className="h-3.5 w-3.5 text-white" />
             </div>
             <span className="text-sm font-bold text-white">
-              AI <span className="gradient-text">Interviewer</span>
+              Intervo
             </span>
           </a>
 
@@ -32,7 +32,7 @@ export default function Footer() {
 
           {/* Copyright */}
           <p className="text-sm text-zinc-600">
-            © {new Date().getFullYear()} AI Interviewer
+            © {new Date().getFullYear()} Intervo
           </p>
         </div>
       </div>

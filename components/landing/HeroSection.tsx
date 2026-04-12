@@ -119,7 +119,7 @@ export default function HeroSection() {
                       <Mic className="h-3.5 w-3.5 text-white" />
                     </div>
                     <span className="text-sm font-semibold text-orange-400">
-                      AI Interviewer
+                      Intervo
                     </span>
                   </div>
                   <p className="text-sm leading-relaxed text-zinc-300">

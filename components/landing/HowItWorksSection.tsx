@@ -16,7 +16,7 @@ const steps = [
     number: "02",
     title: "Start AI Interview",
     description:
-      "Begin your real-time video interview with our AI interviewer. It adapts questions based on your answers.",
+      "Begin your real-time video interview with Intervo. It adapts questions based on your answers.",
   },
   {
     icon: TrendingUp,
