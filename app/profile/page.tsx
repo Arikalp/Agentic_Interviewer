@@ -16,11 +16,11 @@ import {
 
 type InterviewSession = {
   id: string;
-  role: string;
   date: string;
   score: number;
-  highlights: string[];
-  improveOn: string;
+  strengths: string[];
+  improvementAreas: string[];
+  questionsCount: number;
 };
 
 type ResumeInsights = {
@@ -32,33 +32,6 @@ type ResumeInsights = {
   interviewFocus: string[];
   estimatedExperienceYears: number;
 };
-
-const mockInterviewSessions: InterviewSession[] = [
-  {
-    id: 'sess-101',
-    role: 'Frontend Developer',
-    date: 'Mar 25, 2026',
-    score: 82,
-    highlights: ['Clear project explanation', 'Good problem-solving approach'],
-    improveOn: 'Explain time complexity more confidently.',
-  },
-  {
-    id: 'sess-102',
-    role: 'Full Stack Engineer',
-    date: 'Apr 03, 2026',
-    score: 76,
-    highlights: ['Strong API design basics', 'Good communication'],
-    improveOn: 'Add more depth on database indexing and scaling.',
-  },
-  {
-    id: 'sess-103',
-    role: 'Software Engineer',
-    date: 'Apr 10, 2026',
-    score: 88,
-    highlights: ['Structured answers', 'Confident system-thinking'],
-    improveOn: 'Use more quantified examples from past projects.',
-  },
-];
 
 const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -85,15 +58,16 @@ export default function ProfilePage() {
   const [resumeInsights, setResumeInsights] = useState<ResumeInsights | null>(null);
   const [insightsUpdatedAt, setInsightsUpdatedAt] = useState<string | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(true);
+  const [interviewSessions, setInterviewSessions] = useState<InterviewSession[]>([]);
+  const [loadingInterviews, setLoadingInterviews] = useState(true);
+  const [overallAverage, setOverallAverage] = useState(0);
+  const [interviewsError, setInterviewsError] = useState('');
 
   if (isLoaded && !isSignedIn) {
     redirect('/');
   }
 
-  const averageScore = useMemo(() => {
-    const total = mockInterviewSessions.reduce((sum, session) => sum + session.score, 0);
-    return Math.round(total / mockInterviewSessions.length);
-  }, []);
+  const averageScore = overallAverage;
 
   const topSuggestions = useMemo(() => {
     if (resumeInsights?.interviewFocus && resumeInsights.interviewFocus.length > 0) {
@@ -136,6 +110,35 @@ export default function ProfilePage() {
     }
 
     loadInsights();
+  }, [isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    async function loadInterviewScores() {
+      if (!isLoaded || !isSignedIn) {
+        return;
+      }
+
+      try {
+        setLoadingInterviews(true);
+        const response = await fetch('/api/interview/scores');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to load interview scores.');
+        }
+
+        setInterviewSessions(data.sessions || []);
+        setOverallAverage(data.overallAverage || 0);
+        setInterviewsError('');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load interview scores.';
+        setInterviewsError(message);
+      } finally {
+        setLoadingInterviews(false);
+      }
+    }
+
+    loadInterviewScores();
   }, [isLoaded, isSignedIn]);
 
   const onResumeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,34 +284,56 @@ export default function ProfilePage() {
             </div>
 
             <div className="space-y-4">
-              {mockInterviewSessions.map((session) => (
-                <article
-                  key={session.id}
-                  className="rounded-xl border border-zinc-800 bg-black/20 p-4 transition-colors hover:border-[#f97316]/40"
-                >
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-base font-semibold text-white">{session.role}</h3>
-                    <span className="rounded-full bg-[#f97316]/15 px-3 py-1 text-xs font-medium text-[#fb923c]">
-                      Score: {session.score}/100
-                    </span>
-                  </div>
+              {loadingInterviews ? (
+                <p className="text-sm text-zinc-400">Loading interview history...</p>
+              ) : interviewsError ? (
+                <p className="rounded-lg border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-300">
+                  {interviewsError}
+                </p>
+              ) : interviewSessions.length === 0 ? (
+                <p className="text-sm text-zinc-400">
+                  No interviews yet. Start your first interview to see scores here!
+                </p>
+              ) : (
+                interviewSessions.map((session) => (
+                  <article
+                    key={session.id}
+                    className="rounded-xl border border-zinc-800 bg-black/20 p-4 transition-colors hover:border-[#f97316]/40"
+                  >
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm text-zinc-400">{session.date}</p>
+                        <p className="text-xs text-zinc-500">{session.questionsCount} questions answered</p>
+                      </div>
+                      <span className="rounded-full bg-[#f97316]/15 px-3 py-1 text-xs font-medium text-[#fb923c]">
+                        Score: {session.score}/100
+                      </span>
+                    </div>
 
-                  <p className="mb-3 text-sm text-zinc-500">{session.date}</p>
+                    {session.strengths.length > 0 ? (
+                      <div className="mb-3">
+                        <p className="mb-2 text-sm font-medium text-zinc-300">Strengths</p>
+                        <ul className="space-y-1 text-sm text-zinc-400">
+                          {session.strengths.map((point) => (
+                            <li key={point}>• {point}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
 
-                  <div className="mb-3">
-                    <p className="mb-2 text-sm font-medium text-zinc-300">Highlights</p>
-                    <ul className="space-y-1 text-sm text-zinc-400">
-                      {session.highlights.map((point) => (
-                        <li key={point}>• {point}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
-                    Improve next time: {session.improveOn}
-                  </div>
-                </article>
-              ))}
+                    {session.improvementAreas.length > 0 ? (
+                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-200">
+                        <p className="font-medium mb-1">Areas to improve:</p>
+                        <ul className="space-y-1 text-sm">
+                          {session.improvementAreas.map((area) => (
+                            <li key={area}>• {area}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </article>
+                ))
+              )}
             </div>
           </section>
         </div>

@@ -149,6 +149,15 @@ export async function generateInterviewQuestionsWithGroq(
 
   const groq = new Groq({ apiKey });
 
+  // Start with an introduction question
+  const introQuestion: InterviewQuestion = {
+    question: 'Tell me about yourself. Please share your background, key experiences, and what you\'re looking for in your next role.',
+    skillFocus: 'Introduction & Communication',
+  };
+
+  // Request one fewer question since we\'re adding the intro
+  const remainingQuestionCount = Math.max(1, questionCount - 1);
+
   const completion = await groq.chat.completions.create({
     model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
     temperature: 0.4,
@@ -157,11 +166,11 @@ export async function generateInterviewQuestionsWithGroq(
       {
         role: 'system',
         content:
-          'You are an interview coach. Return only valid JSON: {"questions":[{"question":"...","skillFocus":"..."}]}. Questions must be practical interview prompts based on resume strengths and gaps.',
+          'You are an interview coach. Return only valid JSON: {"questions":[{"question":"...","skillFocus":"..."}]}. Questions must be practical interview prompts based on resume strengths and gaps. Start with general/behavioral questions before jumping to technical ones.',
       },
       {
         role: 'user',
-        content: `Create ${questionCount} interview questions using this resume insight JSON:\n${JSON.stringify(insights)}\n\nRules: include behavioral + technical + project-based questions and keep each concise.`,
+        content: `Create ${remainingQuestionCount} interview questions using this resume insight JSON:\n${JSON.stringify(insights)}\n\nRules: Start with general/behavioral questions then move to technical. Include mix of behavioral + technical + project-based questions. Keep each concise.`,
       },
     ],
   });
@@ -170,8 +179,12 @@ export async function generateInterviewQuestionsWithGroq(
   const parsed = JSON.parse(rawContent);
   const questions = sanitizeQuestions(parsed);
 
-  if (questions.length === 0) {
+  // Combine intro question with generated questions
+  const allQuestions = [introQuestion, ...questions];
+
+  if (allQuestions.length === 1) {
     return [
+      introQuestion,
       {
         question: 'Tell me about a project where you solved a difficult technical problem.',
         skillFocus: 'Project storytelling',
@@ -179,7 +192,7 @@ export async function generateInterviewQuestionsWithGroq(
     ];
   }
 
-  return questions;
+  return allQuestions;
 }
 
 export async function evaluateAnswerWithGroq(input: {

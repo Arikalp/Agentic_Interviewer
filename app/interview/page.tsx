@@ -1,7 +1,7 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import { LoaderCircle, Mic, MicOff, Radio, Square, Video, VideoOff } from 'lucide-react';
+import { LoaderCircle, Mic, MicOff, Video, VideoOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -24,6 +24,18 @@ type EvaluatedAnswer = {
   evaluation: AnswerEvaluation;
 };
 
+type InterviewPhase =
+  | 'booting'
+  | 'ready'
+  | 'recording'
+  | 'transcribing'
+  | 'scoring'
+  | 'review'
+  | 'complete';
+
+const ANSWER_WINDOW_MS = 30000;
+const REVIEW_DELAY_MS = 1600;
+
 export default function InterviewPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useUser();
@@ -31,10 +43,13 @@ export default function InterviewPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
+  const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reviewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [permissionError, setPermissionError] = useState('');
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
+  const [mediaReady, setMediaReady] = useState(false);
 
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -43,6 +58,7 @@ export default function InterviewPage() {
   const [countdownValue, setCountdownValue] = useState(5);
   const [showCountdown, setShowCountdown] = useState(true);
   const [interviewStarted, setInterviewStarted] = useState(false);
+  const [phase, setPhase] = useState<InterviewPhase>('booting');
 
   const [answerText, setAnswerText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -52,6 +68,18 @@ export default function InterviewPage() {
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<EvaluatedAnswer[]>([]);
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
   const [evaluationError, setEvaluationError] = useState('');
+
+  const clearPendingTimers = () => {
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
+    }
+
+    if (reviewTimeoutRef.current) {
+      clearTimeout(reviewTimeoutRef.current);
+      reviewTimeoutRef.current = null;
+    }
+  };
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -109,6 +137,7 @@ export default function InterviewPage() {
 
         setIsCameraOn(stream.getVideoTracks().some((track) => track.enabled));
         setIsMicOn(stream.getAudioTracks().some((track) => track.enabled));
+        setMediaReady(true);
       } catch {
         setPermissionError(
           'Camera and microphone permission is required to start interview mode. Please allow access and refresh.',
@@ -150,6 +179,7 @@ export default function InterviewPage() {
 
     return () => {
       mounted = false;
+      clearPendingTimers();
 
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
@@ -157,44 +187,83 @@ export default function InterviewPage() {
     };
   }, [isLoaded, isSignedIn, interviewStarted]);
 
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !interviewStarted) {
+      return;
+    }
+
+    if (mediaReady && !isLoadingQuestions && questions.length > 0 && !questionError) {
+      setPhase('ready');
+      return;
+    }
+
+    if (questionError) {
+      setPhase('complete');
+    }
+  }, [isLoaded, isSignedIn, interviewStarted, mediaReady, isLoadingQuestions, questions.length, questionError]);
+
+  useEffect(() => {
+    return () => {
+      clearPendingTimers();
+
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
+
   const currentQuestion = useMemo(
     () => questions[currentQuestionIndex] || null,
     [questions, currentQuestionIndex],
   );
 
-  const goToNextQuestion = () => {
-    setCurrentQuestionIndex((prev) => Math.min(prev + 1, Math.max(questions.length - 1, 0)));
-  };
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !interviewStarted) {
+      return;
+    }
 
-  const goToPreviousQuestion = () => {
-    setCurrentQuestionIndex((prev) => Math.max(prev - 1, 0));
-  };
+    if (!isLoadingQuestions && !questionError && questions.length > 0 && currentQuestionIndex >= questions.length) {
+      clearPendingTimers();
+      setPhase('complete');
+    }
+  }, [
+    isLoaded,
+    isSignedIn,
+    interviewStarted,
+    isLoadingQuestions,
+    questionError,
+    questions.length,
+    currentQuestionIndex,
+  ]);
 
-  const startAnswerCapture = () => {
-    const stream = streamRef.current;
-    if (!stream) {
-      setEvaluationError('Media stream is not available. Please allow camera and microphone.');
+  useEffect(() => {
+    if (phase !== 'ready' || !currentQuestion || !streamRef.current) {
       return;
     }
 
     setEvaluationError('');
     setRecordedAudioUrl('');
+    setRecordedAudioMimeType('audio/webm');
     setAnswerText('');
+    setIsTranscribing(false);
 
-    if (typeof MediaRecorder === 'undefined') {
-      setEvaluationError('Audio recording is not supported in this browser.');
-      return;
-    }
-
-    recordedChunksRef.current = [];
+    const stream = streamRef.current;
     const audioTracks = stream.getAudioTracks();
     const audioOnlyStream = audioTracks.length > 0 ? new MediaStream(audioTracks) : null;
 
     if (!audioOnlyStream) {
       setEvaluationError('Microphone audio is not available. Please allow microphone access.');
+      setPhase('complete');
       return;
     }
 
+    if (typeof MediaRecorder === 'undefined') {
+      setEvaluationError('Audio recording is not supported in this browser.');
+      setPhase('complete');
+      return;
+    }
+
+    recordedChunksRef.current = [];
     const preferredMimeTypes = [
       'audio/webm;codecs=opus',
       'audio/webm',
@@ -213,6 +282,7 @@ export default function InterviewPage() {
       setEvaluationError(
         'Could not initialize microphone recording on this device/browser. Try Chrome or Edge and allow mic access.',
       );
+      setPhase('complete');
       return;
     }
 
@@ -222,182 +292,153 @@ export default function InterviewPage() {
       }
     };
 
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
+      clearPendingTimers();
+      setIsRecording(false);
+
       const blobType = recorder.mimeType || supportedMimeType || 'audio/webm';
       const audioBlob = new Blob(recordedChunksRef.current, { type: blobType });
-      if (audioBlob.size > 0) {
-        const nextUrl = URL.createObjectURL(audioBlob);
-        setRecordedAudioUrl(nextUrl);
-        setRecordedAudioMimeType(blobType);
 
-        const formData = new FormData();
-        const fileExtension = blobType.includes('mp4')
-          ? 'mp4'
-          : blobType.includes('ogg')
-            ? 'ogg'
-            : 'webm';
-        formData.append('audio', audioBlob, `answer.${fileExtension}`);
+      if (audioBlob.size <= 0) {
+        setEvaluationError('No audio was captured for this question.');
+        setPhase('review');
+        reviewTimeoutRef.current = setTimeout(() => {
+          setCurrentQuestionIndex((prev) => prev + 1);
+          setPhase('ready');
+        }, REVIEW_DELAY_MS);
+        return;
+      }
 
-        setIsTranscribing(true);
-        fetch('/api/interview/transcribe', {
+      const nextUrl = URL.createObjectURL(audioBlob);
+      setRecordedAudioUrl(nextUrl);
+      setRecordedAudioMimeType(blobType);
+      setIsTranscribing(true);
+      setPhase('transcribing');
+
+      const formData = new FormData();
+      const fileExtension = blobType.includes('mp4')
+        ? 'mp4'
+        : blobType.includes('ogg')
+          ? 'ogg'
+          : 'webm';
+      formData.append('audio', audioBlob, `answer.${fileExtension}`);
+
+      let transcript = '';
+
+      try {
+        const response = await fetch('/api/interview/transcribe', {
           method: 'POST',
           body: formData,
-        })
-          .then(async (response) => {
-            const data = (await response.json().catch(() => ({}))) as { text?: string; error?: string };
+        });
 
-            if (!response.ok) {
-              throw new Error(data?.error || 'Failed to transcribe audio.');
-            }
+        const data = (await response.json().catch(() => ({}))) as {
+          text?: string;
+          error?: string;
+        };
 
-            const transcript = data.text?.trim() || '';
-            if (transcript) {
-              setAnswerText((prev) => {
-                const existing = prev.trim();
-                return existing.length > 0 ? `${existing} ${transcript}` : transcript;
-              });
-            }
-          })
-          .catch((error) => {
-            const message =
-              error instanceof Error ? error.message : 'Failed to transcribe audio.';
-            setEvaluationError(message);
-          })
-          .finally(() => {
-            setIsTranscribing(false);
-          });
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to transcribe audio.');
+        }
+
+        transcript = data.text?.trim() || '';
+        setAnswerText(transcript);
+      } catch (error) {
+        transcript = 'Transcription unavailable.';
+        setAnswerText(transcript);
+        setEvaluationError(
+          error instanceof Error ? error.message : 'Failed to transcribe audio.',
+        );
+      } finally {
+        setIsTranscribing(false);
       }
-    };
 
-    recorder.onerror = () => {
-      setEvaluationError(
-        'Recording failed. Please check microphone permissions and try again.',
-      );
-      setIsRecording(false);
-      setIsTranscribing(false);
+      setPhase('scoring');
+      setIsEvaluatingAnswer(true);
+
+      const answerToScore = transcript.trim() || 'Transcription unavailable.';
+
+      try {
+        const response = await fetch('/api/interview/evaluate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            currentQuestion: currentQuestion.question,
+            userAnswer: answerToScore,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to evaluate answer.');
+        }
+
+        const evaluation = data.evaluation as AnswerEvaluation;
+
+        setEvaluatedAnswers((prev) => [
+          {
+            question: currentQuestion.question,
+            answer: answerToScore,
+            evaluation,
+          },
+          ...prev,
+        ]);
+
+        if (evaluation.followUpQuestion?.trim()) {
+          setQuestions((prev) => {
+            const exists = prev.some(
+              (q) => q.question.trim().toLowerCase() === evaluation.followUpQuestion.trim().toLowerCase(),
+            );
+
+            if (exists) {
+              return prev;
+            }
+
+            const next = [...prev];
+            next.splice(currentQuestionIndex + 1, 0, {
+              question: evaluation.followUpQuestion,
+              skillFocus: 'Follow-up depth',
+            });
+            return next;
+          });
+        }
+      } catch (error) {
+        setEvaluationError(
+          error instanceof Error ? error.message : 'Unable to evaluate answer right now.',
+        );
+      } finally {
+        setIsEvaluatingAnswer(false);
+      }
+
+      setPhase('review');
+      reviewTimeoutRef.current = setTimeout(() => {
+        setCurrentQuestionIndex((prev) => prev + 1);
+        setPhase('ready');
+      }, REVIEW_DELAY_MS);
     };
 
     mediaRecorderRef.current = recorder;
+
     try {
       recorder.start();
       setIsRecording(true);
+      setPhase('recording');
     } catch {
       setEvaluationError(
         'Failed to start recording. Your browser may not support this recording format.',
       );
+      setPhase('complete');
       return;
     }
 
-  };
-
-  const stopAnswerCapture = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-
-    setIsRecording(false);
-  };
-
-  const submitAnswerForScoring = async () => {
-    if (!currentQuestion) {
-      return;
-    }
-
-    if (!answerText.trim()) {
-      setEvaluationError('Please record or type an answer before submitting.');
-      return;
-    }
-
-    try {
-      setIsEvaluatingAnswer(true);
-      setEvaluationError('');
-
-      const response = await fetch('/api/interview/evaluate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          currentQuestion: currentQuestion.question,
-          userAnswer: answerText,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'Failed to evaluate answer.');
+    recordingTimeoutRef.current = setTimeout(() => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
       }
-
-      const evaluation = data.evaluation as AnswerEvaluation;
-
-      setEvaluatedAnswers((prev) => [
-        {
-          question: currentQuestion.question,
-          answer: answerText,
-          evaluation,
-        },
-        ...prev,
-      ]);
-
-      if (evaluation.followUpQuestion?.trim()) {
-        setQuestions((prev) => {
-          const exists = prev.some(
-            (q) => q.question.trim().toLowerCase() === evaluation.followUpQuestion.trim().toLowerCase(),
-          );
-
-          if (exists) {
-            return prev;
-          }
-
-          const next = [...prev];
-          next.splice(currentQuestionIndex + 1, 0, {
-            question: evaluation.followUpQuestion,
-            skillFocus: 'Follow-up depth',
-          });
-          return next;
-        });
-      }
-
-      setCurrentQuestionIndex((prev) => Math.min(prev + 1, Math.max(questions.length, 1)));
-      setAnswerText('');
-      setRecordedAudioUrl('');
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unable to evaluate answer right now.';
-      setEvaluationError(message);
-    } finally {
-      setIsEvaluatingAnswer(false);
-    }
-  };
-
-  const toggleCamera = () => {
-    const stream = streamRef.current;
-    if (!stream) {
-      return;
-    }
-
-    const videoTracks = stream.getVideoTracks();
-    for (const track of videoTracks) {
-      track.enabled = !track.enabled;
-    }
-
-    setIsCameraOn(videoTracks.some((track) => track.enabled));
-  };
-
-  const toggleMic = () => {
-    const stream = streamRef.current;
-    if (!stream) {
-      return;
-    }
-
-    const audioTracks = stream.getAudioTracks();
-    for (const track of audioTracks) {
-      track.enabled = !track.enabled;
-    }
-
-    setIsMicOn(audioTracks.some((track) => track.enabled));
-  };
+    }, ANSWER_WINDOW_MS);
+  }, [phase, currentQuestion, currentQuestionIndex]);
 
   if (!isLoaded) {
     return (
@@ -406,6 +447,21 @@ export default function InterviewPage() {
       </div>
     );
   }
+
+  const phaseLabel =
+    phase === 'booting'
+      ? 'Preparing'
+      : phase === 'ready'
+        ? 'Auto flow armed'
+        : phase === 'recording'
+          ? 'Recording'
+          : phase === 'transcribing'
+            ? 'Transcribing'
+            : phase === 'scoring'
+              ? 'Scoring'
+              : phase === 'review'
+                ? 'Advancing'
+                : 'Complete';
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] px-4 py-8 sm:px-6 lg:px-8">
@@ -425,7 +481,12 @@ export default function InterviewPage() {
 
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-3xl font-bold text-white">Live Interview</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-white">Live Interview</h1>
+            <p className="mt-1 text-sm text-zinc-400">
+              The interview runs automatically from question to transcription to scoring.
+            </p>
+          </div>
           <button
             onClick={() => router.push('/dashboard')}
             className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:text-white"
@@ -436,7 +497,7 @@ export default function InterviewPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
           <section className="rounded-2xl border border-zinc-800 bg-[#101010] p-5">
-            <p className="mb-3 text-sm text-zinc-400">Your camera feed (mic + camera required)</p>
+            <p className="mb-3 text-sm text-zinc-400">Your camera feed and automatic microphone capture</p>
 
             <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-black">
               <video
@@ -448,51 +509,45 @@ export default function InterviewPage() {
               />
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                onClick={toggleCamera}
-                className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500"
-              >
-                {isCameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                {isCameraOn ? 'Camera On' : 'Camera Off'}
-              </button>
-
-              <button
-                onClick={toggleMic}
-                className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500"
-              >
-                {isMicOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-                {isMicOn ? 'Mic On' : 'Mic Off'}
-              </button>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+              <span className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-3 py-1.5">
+                {isCameraOn ? <Video className="h-3.5 w-3.5 text-orange-300" /> : <VideoOff className="h-3.5 w-3.5" />}
+                Camera {isCameraOn ? 'On' : 'Off'}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-3 py-1.5">
+                {isMicOn ? <Mic className="h-3.5 w-3.5 text-orange-300" /> : <MicOff className="h-3.5 w-3.5" />}
+                Mic {isMicOn ? 'On' : 'Off'}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-3 py-1.5 text-orange-300">
+                {phase === 'recording' || phase === 'transcribing' || phase === 'scoring' ? (
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                {phaseLabel}
+              </span>
             </div>
 
             <div className="mt-4 rounded-xl border border-zinc-800 bg-black/20 p-4">
-              <p className="mb-3 text-sm font-medium text-zinc-200">Voice Answer Capture</p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={startAnswerCapture}
-                  disabled={isRecording}
-                  className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-amber-500 px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Radio className="h-4 w-4" />
-                  Start Recording
-                </button>
-                <button
-                  onClick={stopAnswerCapture}
-                  disabled={!isRecording}
-                  className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Square className="h-4 w-4" />
-                  Stop Recording
-                </button>
-              </div>
-
-              <p className="mt-2 text-xs text-zinc-500">
-                {isRecording
-                  ? 'Recording in progress. Whisper transcription starts after you stop.'
-                  : 'Use recording or type answer manually before submit.'}
-                {isTranscribing ? ' Transcribing with Whisper...' : ' Whisper transcription ready.'}
+              <p className="mb-3 text-sm font-medium text-zinc-200">Automatic answer pipeline</p>
+              <p className="text-xs text-zinc-500">
+                Each question records for about {Math.round(ANSWER_WINDOW_MS / 1000)} seconds, then
+                Whisper transcribes it and the evaluator scores it automatically.
               </p>
+              <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 text-sm text-zinc-200">
+                {answerText ? answerText : 'Transcript will appear here automatically.'}
+              </div>
+              <div className="mt-3 text-xs text-zinc-500">
+                {isRecording
+                  ? 'Recording answer now...'
+                  : isTranscribing
+                    ? 'Transcribing with Whisper...'
+                    : isEvaluatingAnswer
+                      ? 'Scoring answer...'
+                      : phase === 'review'
+                        ? 'Advancing to the next question...'
+                        : phase === 'complete'
+                          ? 'Interview complete.'
+                          : 'Ready for the next automatic run.'}
+              </div>
 
               {recordedAudioUrl ? (
                 <audio controls className="mt-3 w-full">
@@ -509,7 +564,7 @@ export default function InterviewPage() {
           </section>
 
           <section className="rounded-2xl border border-zinc-800 bg-linear-to-br from-[#1a1a1a] to-[#0f0f0f] p-6">
-            <p className="mb-2 text-xs uppercase tracking-wider text-[#fb923c]">Groq Interviewer</p>
+            <p className="mb-2 text-xs uppercase tracking-wider text-[#fb923c]">Intervo</p>
 
             {isLoadingQuestions ? (
               <p className="text-sm text-zinc-400">Generating resume-based interview questions...</p>
@@ -531,42 +586,30 @@ export default function InterviewPage() {
                   <p className="mt-3 text-xs text-zinc-400">Focus: {currentQuestion.skillFocus}</p>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={goToPreviousQuestion}
-                    disabled={currentQuestionIndex === 0}
-                    className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={goToNextQuestion}
-                    disabled={currentQuestionIndex >= questions.length - 1}
-                    className="rounded-lg bg-linear-to-r from-orange-500 to-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Next Question
-                  </button>
-                </div>
-
-                <div className="mt-4 rounded-xl border border-zinc-800 bg-black/20 p-4">
-                  <p className="mb-2 text-sm font-medium text-zinc-200">Your Answer (transcript/editable)</p>
-                  <textarea
-                    value={answerText}
-                    onChange={(event) => setAnswerText(event.target.value)}
-                    rows={5}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-orange-400"
-                    placeholder="Speak or type your answer here..."
-                  />
-                  <button
-                    onClick={submitAnswerForScoring}
-                    disabled={isEvaluatingAnswer}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-amber-500 px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isEvaluatingAnswer ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                    {isEvaluatingAnswer ? 'Scoring Answer...' : 'Submit & Score Answer'}
-                  </button>
+                <div className="rounded-xl border border-zinc-800 bg-black/20 p-4">
+                  <p className="mb-2 text-sm font-medium text-zinc-200">Current evaluation status</p>
+                  <p className="text-sm text-zinc-400">
+                    {phase === 'ready'
+                      ? 'Starting automatically.'
+                      : phase === 'recording'
+                        ? 'Capturing your answer.'
+                        : phase === 'transcribing'
+                          ? 'Whisper is transcribing the audio.'
+                          : phase === 'scoring'
+                            ? 'Answer evaluation is running.'
+                            : phase === 'review'
+                              ? 'Waiting before the next question.'
+                              : phase === 'complete'
+                                ? 'Interview complete.'
+                                : 'Preparing the interview.'}
+                  </p>
                 </div>
               </>
+            ) : phase === 'complete' ? (
+              <div className="rounded-xl border border-zinc-800 bg-black/20 p-4 text-sm text-zinc-300">
+                The automated interview is finished. Review the scores on the left and return to the
+                dashboard when you are done.
+              </div>
             ) : null}
 
             {evaluationError ? (
@@ -595,6 +638,12 @@ export default function InterviewPage() {
             ) : null}
           </section>
         </div>
+
+        {isLoadingQuestions || questionError || permissionError ? null : (
+          <p className="mt-6 text-center text-sm text-zinc-500">
+            The system will move through the full interview automatically without additional input.
+          </p>
+        )}
       </div>
     </div>
   );
