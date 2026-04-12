@@ -80,10 +80,30 @@ export async function POST(request: Request) {
       );
     }
 
+    const resumeHash = createHash('sha256').update(text).digest('hex');
+    const db = await getMongoDb();
+    const existing = await db.collection('resumeInsights').findOne(
+      { userId },
+      {
+        projection: {
+          resumeHash: 1,
+          insights: 1,
+          updatedAt: 1,
+        },
+      },
+    );
+
+    if (existing?.resumeHash === resumeHash && existing?.insights) {
+      return NextResponse.json({
+        insights: existing.insights,
+        updatedAt: existing.updatedAt,
+        reused: true,
+        message: 'Resume unchanged. Reused existing analysis to save cost.',
+      });
+    }
+
     const insights = await analyzeResumeWithGroq(text);
 
-    const db = await getMongoDb();
-    const resumeHash = createHash('sha256').update(text).digest('hex');
     const now = new Date();
 
     await db.collection('resumeInsights').updateOne(
