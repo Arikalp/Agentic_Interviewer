@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { Menu, X, Sparkles } from "lucide-react";
-import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs";
+import { SignInButton, SignUpButton, useUser } from "@clerk/nextjs";
+import Link from "next/link";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -16,7 +17,7 @@ export default function Navbar() {
   const [hidden, setHidden] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { scrollY } = useScroll();
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const prev = scrollY.getPrevious() ?? 0;
@@ -89,7 +90,18 @@ export default function Navbar() {
                 </SignUpButton>
               </>
             ) : (
-              <UserButton afterSignOutUrl="/" userProfileMode="modal" />
+              <Link
+                href="/profile"
+                className="inline-flex items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-900/70 px-2 py-1.5 transition-colors hover:border-zinc-500"
+                aria-label="Open profile"
+              >
+                <img
+                  src={user?.imageUrl || "https://placehold.co/40x40"}
+                  alt="Profile"
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+                <span className="pr-2 text-xs font-medium text-zinc-300">Profile</span>
+              </Link>
             )}
           </div>
 
@@ -127,24 +139,13 @@ export default function Navbar() {
                   {link.label}
                 </a>
               ))}
-              {!isSignedIn ? (
-                <div className="flex gap-2">
-                  <SignInButton mode="modal" forceRedirectUrl="/dashboard">
-                    <button onClick={() => setMobileOpen(false)} className="flex-1 rounded-full px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white text-center cursor-pointer">
-                      Login
-                    </button>
-                  </SignInButton>
-                  <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
-                    <button onClick={() => setMobileOpen(false)} className="btn-primary flex-1 px-4! py-2! text-sm text-center cursor-pointer">
-                      Sign Up
-                    </button>
-                  </SignUpButton>
-                </div>
-              ) : (
-                <div className="flex justify-center">
-                  <UserButton afterSignOutUrl="/" userProfileMode="modal" />
-                </div>
-              )}
+              <Link
+                href="/profile"
+                onClick={() => setMobileOpen(false)}
+                className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/60 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:text-white"
+              >
+                Open Profile
+              </Link>
             </div>
           </motion.div>
         )}

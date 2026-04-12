@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { SignOutButton, useClerk, useUser } from '@clerk/nextjs';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -66,6 +66,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function ProfilePage() {
+  const { openUserProfile } = useClerk();
   const { isLoaded, isSignedIn, user } = useUser();
   const [selectedResume, setSelectedResume] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState('');
@@ -131,6 +132,19 @@ export default function ProfilePage() {
             <p className="mt-2 text-zinc-400">
               Review your interview progress, insights, and keep your resume ready.
             </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => openUserProfile()}
+              className="rounded-full border border-zinc-700 bg-zinc-900/60 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:text-white"
+            >
+              Manage Account
+            </button>
+            <SignOutButton redirectUrl="/">
+              <button className="rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/20">
+                Logout
+              </button>
+            </SignOutButton>
           </div>
         </div>
 
