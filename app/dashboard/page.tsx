@@ -3,6 +3,7 @@
 import { useUser } from '@clerk/nextjs';
 import { redirect } from 'next/navigation';
 import { useEffect } from 'react';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -32,7 +33,7 @@ export default function DashboardPage() {
         </p>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="rounded-2xl border border-zinc-800 bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] p-6 hover:border-[#6c47ff] transition-colors">
+          <div className="rounded-2xl border border-zinc-800 bg-linear-to-br from-[#1a1a1a] to-[#0f0f0f] p-6 hover:border-[#6c47ff] transition-colors">
             <h3 className="text-xl font-semibold text-white mb-2">Start Interview</h3>
             <p className="text-zinc-400 text-sm mb-4">Begin a new mock interview session</p>
             <button className="text-[#6c47ff] hover:text-[#7d5aff] font-medium text-sm">
@@ -40,7 +41,7 @@ export default function DashboardPage() {
             </button>
           </div>
           
-          <div className="rounded-2xl border border-zinc-800 bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] p-6 hover:border-[#6c47ff] transition-colors">
+          <div className="rounded-2xl border border-zinc-800 bg-linear-to-br from-[#1a1a1a] to-[#0f0f0f] p-6 hover:border-[#6c47ff] transition-colors">
             <h3 className="text-xl font-semibold text-white mb-2">View History</h3>
             <p className="text-zinc-400 text-sm mb-4">Review your past interviews and feedback</p>
             <button className="text-[#6c47ff] hover:text-[#7d5aff] font-medium text-sm">
@@ -48,12 +49,12 @@ export default function DashboardPage() {
             </button>
           </div>
           
-          <div className="rounded-2xl border border-zinc-800 bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] p-6 hover:border-[#6c47ff] transition-colors">
-            <h3 className="text-xl font-semibold text-white mb-2">Settings</h3>
-            <p className="text-zinc-400 text-sm mb-4">Manage your account preferences</p>
-            <button className="text-[#6c47ff] hover:text-[#7d5aff] font-medium text-sm">
-              Configure →
-            </button>
+          <div className="rounded-2xl border border-zinc-800 bg-linear-to-br from-[#1a1a1a] to-[#0f0f0f] p-6 hover:border-[#6c47ff] transition-colors">
+            <h3 className="text-xl font-semibold text-white mb-2">Profile</h3>
+            <p className="text-zinc-400 text-sm mb-4">View your details, history, and resume</p>
+            <Link href="/profile" className="text-[#6c47ff] hover:text-[#7d5aff] font-medium text-sm inline-block">
+              Open Profile →
+            </Link>
           </div>
         </div>
       </div>
