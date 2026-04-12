@@ -38,10 +38,11 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .toArray();
 
-    // Group by session (approximate by createdAt within 5 minutes)
+    // Group by session (approximate by createdAt within 30 seconds)
     const sessions: Array<{
       id: string;
       date: string;
+      timestamp: number;
       scores: number[];
       questions: string[];
       averageScore: number;
@@ -53,13 +54,11 @@ export async function GET() {
 
     evaluations.forEach((evalRecord: any) => {
       const evalDate = new Date(evalRecord.createdAt);
+      const evalTimestamp = evalDate.getTime();
       const evalScore = evalRecord.evaluation?.score || 0;
 
       // Group evaluations from same interview session (within 30 seconds)
-      if (
-        !currentSession ||
-        Math.abs(new Date(currentSession.date).getTime() - evalDate.getTime()) > 30000
-      ) {
+      if (!currentSession || Math.abs(currentSession.timestamp - evalTimestamp) > 30000) {
         if (currentSession) {
           // Calculate average score for previous session
           currentSession.averageScore =
@@ -70,8 +69,9 @@ export async function GET() {
         }
 
         currentSession = {
-          id: `sess-${evalDate.getTime()}`,
+          id: `sess-${evalTimestamp}`,
           date: evalDate.toLocaleString(),
+          timestamp: evalTimestamp,
           scores: [evalScore],
           questions: [evalRecord.currentQuestion || ''],
           averageScore: evalScore,

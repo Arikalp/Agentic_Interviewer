@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowUpRight,
@@ -14,17 +14,24 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-const sessions = [
-  { date: 'Apr 10, 2026', role: 'Software Engineer', score: 88 },
-  { date: 'Apr 03, 2026', role: 'Full Stack Engineer', score: 76 },
-  { date: 'Mar 25, 2026', role: 'Frontend Developer', score: 82 },
-];
+type InterviewSession = {
+  id: string;
+  date: string;
+  score: number;
+  strengths: string[];
+  improvementAreas: string[];
+  questionsCount: number;
+};
 
 const strengths = ['Structured communication', 'Clear project storytelling', 'Problem decomposition'];
 
 export default function DashboardPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn, user } = useUser();
+  const [sessions, setSessions] = useState<InterviewSession[]>([]);
+  const [overallAverage, setOverallAverage] = useState(0);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [sessionsError, setSessionsError] = useState('');
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -32,10 +39,34 @@ export default function DashboardPage() {
     }
   }, [isLoaded, isSignedIn, router]);
 
-  const averageScore = useMemo(() => {
-    const total = sessions.reduce((sum, session) => sum + session.score, 0);
-    return Math.round(total / sessions.length);
-  }, []);
+  useEffect(() => {
+    async function loadInterviewScores() {
+      if (!isLoaded || !isSignedIn) {
+        return;
+      }
+
+      try {
+        setLoadingSessions(true);
+        const response = await fetch('/api/interview/scores');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to load interview scores.');
+        }
+
+        setSessions(data.sessions || []);
+        setOverallAverage(data.overallAverage || 0);
+        setSessionsError('');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load interview scores.';
+        setSessionsError(message);
+      } finally {
+        setLoadingSessions(false);
+      }
+    }
+
+    loadInterviewScores();
+  }, [isLoaded, isSignedIn]);
 
   if (!isLoaded) {
     return (
@@ -90,7 +121,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-zinc-800 bg-black/30 p-4">
                 <p className="text-xs text-zinc-500">Average Score</p>
-                <p className="mt-2 text-2xl font-bold text-white">{averageScore}%</p>
+                <p className="mt-2 text-2xl font-bold text-white">{overallAverage}%</p>
               </div>
               <div className="rounded-2xl border border-zinc-800 bg-black/30 p-4">
                 <p className="text-xs text-zinc-500">Sessions Done</p>
@@ -98,7 +129,9 @@ export default function DashboardPage() {
               </div>
               <div className="rounded-2xl border border-zinc-800 bg-black/30 p-4">
                 <p className="text-xs text-zinc-500">Last Session</p>
-                <p className="mt-2 text-sm font-semibold text-zinc-200">{sessions[0]?.date}</p>
+                <p className="mt-2 text-sm font-semibold text-zinc-200">
+                  {loadingSessions ? 'Loading...' : sessions.length > 0 ? sessions[0]?.date : 'No sessions yet'}
+                </p>
               </div>
               <div className="rounded-2xl border border-zinc-800 bg-black/30 p-4">
                 <p className="text-xs text-zinc-500">Consistency Goal</p>
@@ -153,17 +186,30 @@ export default function DashboardPage() {
           <article className="rounded-2xl border border-zinc-800 bg-[#101010] p-6">
             <h2 className="mb-4 text-lg font-semibold text-white">Recent Interview Activity</h2>
             <div className="space-y-4">
-              {sessions.map((session) => (
-                <div key={session.date} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-black/20 p-4">
-                  <div>
-                    <p className="font-medium text-white">{session.role}</p>
-                    <p className="text-xs text-zinc-500">{session.date}</p>
+              {loadingSessions ? (
+                <p className="text-sm text-zinc-400">Loading interview history...</p>
+              ) : sessionsError ? (
+                <p className="rounded-lg border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-300">
+                  {sessionsError}
+                </p>
+              ) : sessions.length === 0 ? (
+                <p className="text-sm text-zinc-400">
+                  No interviews yet. Start your first interview to see results here!
+                </p>
+              ) : (
+                sessions.map((session) => (
+                  <div key={session.id} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-black/20 p-4">
+                    <div>
+                      <p className="font-medium text-white">Interview Session</p>
+                      <p className="text-xs text-zinc-500">{session.date}</p>
+                      <p className="text-xs text-zinc-600">{session.questionsCount} questions answered</p>
+                    </div>
+                    <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-semibold text-orange-300">
+                      {session.score}/100
+                    </span>
                   </div>
-                  <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-semibold text-orange-300">
-                    {session.score}/100
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </article>
 
