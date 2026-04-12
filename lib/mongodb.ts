@@ -16,6 +16,11 @@ async function connectMongoClient(): Promise<MongoClient> {
     serverSelectionTimeoutMS: 10000,
   });
   await client.connect();
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[MongoDB] Connection successful');
+  }
+
   return client;
 }
 
