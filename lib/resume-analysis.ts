@@ -15,6 +15,14 @@ export type InterviewQuestion = {
   skillFocus: string;
 };
 
+export type AnswerEvaluation = {
+  score: number;
+  strengths: string[];
+  improvementAreas: string[];
+  feedbackSummary: string;
+  followUpQuestion: string;
+};
+
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -72,6 +80,29 @@ function sanitizeQuestions(raw: unknown): InterviewQuestion[] {
     .slice(0, 10);
 
   return questions;
+}
+
+function sanitizeAnswerEvaluation(raw: unknown): AnswerEvaluation {
+  const candidate = (raw || {}) as Record<string, unknown>;
+
+  const scoreRaw =
+    typeof candidate.score === 'number' ? candidate.score : Number(candidate.score ?? 0);
+
+  const followUpQuestion =
+    typeof candidate.followUpQuestion === 'string' && candidate.followUpQuestion.trim().length > 0
+      ? candidate.followUpQuestion.trim()
+      : 'Can you give a specific example from your past work for that answer?';
+
+  return {
+    score: Number.isFinite(scoreRaw) ? Math.max(0, Math.min(100, Math.round(scoreRaw))) : 0,
+    strengths: asStringArray(candidate.strengths),
+    improvementAreas: asStringArray(candidate.improvementAreas),
+    feedbackSummary:
+      typeof candidate.feedbackSummary === 'string' && candidate.feedbackSummary.trim().length > 0
+        ? candidate.feedbackSummary.trim()
+        : 'No feedback summary generated.',
+    followUpQuestion,
+  };
 }
 
 export async function analyzeResumeWithGroq(resumeText: string): Promise<ResumeInsights> {
@@ -149,4 +180,39 @@ export async function generateInterviewQuestionsWithGroq(
   }
 
   return questions;
+}
+
+export async function evaluateAnswerWithGroq(input: {
+  currentQuestion: string;
+  userAnswer: string;
+  resumeInsights: ResumeInsights;
+}): Promise<AnswerEvaluation> {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('Missing GROQ_API_KEY in environment variables.');
+  }
+
+  const groq = new Groq({ apiKey });
+
+  const completion = await groq.chat.completions.create({
+    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+    temperature: 0.3,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are an interview evaluator. Return only JSON with fields: score (0-100), strengths (string[]), improvementAreas (string[]), feedbackSummary (string), followUpQuestion (string). Keep feedback concise and practical.',
+      },
+      {
+        role: 'user',
+        content: `Evaluate the candidate answer for interview coaching.\nQuestion: ${input.currentQuestion}\nAnswer: ${input.userAnswer}\nResumeInsights: ${JSON.stringify(input.resumeInsights)}`,
+      },
+    ],
+  });
+
+  const rawContent = completion.choices[0]?.message?.content || '{}';
+  const parsed = JSON.parse(rawContent);
+  return sanitizeAnswerEvaluation(parsed);
 }
