@@ -53,14 +53,15 @@ export async function POST(request: Request) {
     }
 
     const existingQuestionDoc = await db.collection('interviewQuestions').findOne({ userId });
+    const existingQuestions = existingQuestionDoc?.questions;
 
     if (
       existingQuestionDoc?.resumeHash === resumeDoc.resumeHash &&
-      Array.isArray(existingQuestionDoc.questions) &&
-      existingQuestionDoc.questions.length >= questionCount
+      Array.isArray(existingQuestions) &&
+      existingQuestions.length >= questionCount
     ) {
       return NextResponse.json({
-        questions: (existingQuestionDoc.questions as InterviewQuestion[]).slice(0, questionCount),
+        questions: (existingQuestions as InterviewQuestion[]).slice(0, questionCount),
         reused: true,
       });
     }

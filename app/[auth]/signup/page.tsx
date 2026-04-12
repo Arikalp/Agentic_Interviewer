@@ -39,7 +39,7 @@ export default function SignupPage() {
                 socialButtonsBlockButtonText: 'text-zinc-300',
               },
             }}
-            redirectUrl="/dashboard"
+            fallbackRedirectUrl="/dashboard"
           />
         </div>
       </div>

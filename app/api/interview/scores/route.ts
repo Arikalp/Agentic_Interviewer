@@ -2,6 +2,17 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/mongodb';
 
+type SessionAccumulator = {
+  id: string;
+  date: string;
+  timestamp: number;
+  scores: number[];
+  questions: string[];
+  averageScore: number;
+  strengths: Set<string>;
+  improvementAreas: Set<string>;
+};
+
 function normalizeApiError(error: unknown) {
   const message = error instanceof Error ? error.message : 'Unexpected server error.';
 
@@ -39,20 +50,11 @@ export async function GET() {
       .toArray();
 
     // Group by session (approximate by createdAt within 30 seconds)
-    const sessions: Array<{
-      id: string;
-      date: string;
-      timestamp: number;
-      scores: number[];
-      questions: string[];
-      averageScore: number;
-      strengths: Set<string>;
-      improvementAreas: Set<string>;
-    }> = [];
+    const sessions: SessionAccumulator[] = [];
 
-    let currentSession: (typeof sessions)[0] | null = null;
+    let currentSession: SessionAccumulator | null = null;
 
-    evaluations.forEach((evalRecord: any) => {
+    for (const evalRecord of evaluations as any[]) {
       const evalDate = new Date(evalRecord.createdAt);
       const evalTimestamp = evalDate.getTime();
       const evalScore = evalRecord.evaluation?.score || 0;
@@ -90,7 +92,7 @@ export async function GET() {
           );
         }
       }
-    });
+    }
 
     // Add final session
     if (currentSession) {
