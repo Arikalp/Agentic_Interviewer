@@ -31,9 +31,23 @@ export default function Footer() {
           </div>
 
           {/* Copyright */}
-          <p className="text-sm text-zinc-600">
-            © {new Date().getFullYear()} Intervo
-          </p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-sm text-zinc-600">
+              © {new Date().getFullYear()} Intervo
+            </p>
+            <p className="text-sm text-zinc-600">
+              Developed by{" "}
+              <a
+                href="https://arikalp.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-orange-500 transition-colors hover:text-orange-400"
+              >
+                Sankalp
+              </a>{" "}
+              with <span className="text-red-500">❤</span>
+            </p>
+          </div>
         </div>
       </div>
     </footer>
