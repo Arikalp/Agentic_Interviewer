@@ -50,6 +50,8 @@ export default function InterviewPage() {
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(true);
+  const [hasConfirmedStart, setHasConfirmedStart] = useState(false);
 
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -88,7 +90,7 @@ export default function InterviewPage() {
   }, [isLoaded, isSignedIn, router]);
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn) {
+    if (!isLoaded || !isSignedIn || !hasConfirmedStart) {
       return;
     }
 
@@ -112,7 +114,7 @@ export default function InterviewPage() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, hasConfirmedStart]);
 
   useEffect(() => {
     let mounted = true;
@@ -465,7 +467,35 @@ export default function InterviewPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] px-4 py-8 sm:px-6 lg:px-8">
-      {showCountdown ? (
+      {showConfirmation && !hasConfirmedStart ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-black p-8 max-w-md">
+            <h2 className="text-2xl font-bold text-white mb-4">Ready to start?</h2>
+            <p className="text-zinc-400 mb-6">
+              Make sure your camera and microphone are properly positioned. You'll have 30 seconds to answer each question.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="flex-1 rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmation(false);
+                  setHasConfirmedStart(true);
+                }}
+                className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:shadow-lg hover:shadow-orange-500/50"
+              >
+                Start Interview
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showCountdown && !showConfirmation ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="text-center">
             <p className="mb-4 text-sm uppercase tracking-wider text-zinc-400">Interview starts in</p>
@@ -487,15 +517,18 @@ export default function InterviewPage() {
               The interview runs automatically from question to transcription to scoring.
             </p>
           </div>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:text-white"
-          >
-            Back to Dashboard
-          </button>
+          {!showConfirmation && (
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+            >
+              Back to Dashboard
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
+        {hasConfirmedStart && (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
           <section className="rounded-2xl border border-zinc-800 bg-[#101010] p-5">
             <p className="mb-3 text-sm text-zinc-400">Your camera feed and automatic microphone capture</p>
 
@@ -638,6 +671,7 @@ export default function InterviewPage() {
             ) : null}
           </section>
         </div>
+        )}
 
         {isLoadingQuestions || questionError || permissionError ? null : (
           <p className="mt-6 text-center text-sm text-zinc-500">
