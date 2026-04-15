@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs';
 import { LoaderCircle, Mic, MicOff, Video, VideoOff, Volume2, VolumeX } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type InterviewQuestion = {
@@ -79,7 +79,6 @@ function computeDynamicAnswerWindowMs(input: {
 
 export default function InterviewPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { isLoaded, isSignedIn } = useUser();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -114,16 +113,22 @@ export default function InterviewPage() {
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
   const [evaluationError, setEvaluationError] = useState('');
   const [isQuestionVoiceOn, setIsQuestionVoiceOn] = useState(true);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<InterviewDifficulty>('medium');
 
-  const selectedDifficulty = useMemo<InterviewDifficulty>(() => {
-    const value = searchParams.get('difficulty');
-
-    if (value === 'easy' || value === 'medium' || value === 'hard') {
-      return value;
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
     }
 
-    return 'medium';
-  }, [searchParams]);
+    const value = new URLSearchParams(window.location.search).get('difficulty');
+
+    if (value === 'easy' || value === 'medium' || value === 'hard') {
+      setSelectedDifficulty(value);
+      return;
+    }
+
+    setSelectedDifficulty('medium');
+  }, []);
 
   const waitForSpeechVoices = async (): Promise<void> => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
@@ -389,6 +394,12 @@ export default function InterviewPage() {
       setIsTranscribing(false);
 
       const stream = streamRef.current;
+      if (!stream) {
+        setEvaluationError('Microphone stream is not available. Please refresh and try again.');
+        setPhase('complete');
+        return;
+      }
+
       const audioTracks = stream.getAudioTracks();
       const audioOnlyStream = audioTracks.length > 0 ? new MediaStream(audioTracks) : null;
 

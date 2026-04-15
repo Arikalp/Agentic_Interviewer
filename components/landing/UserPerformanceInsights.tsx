@@ -44,8 +44,11 @@ export default function UserPerformanceInsights() {
           throw new Error(data?.error || "Failed to load metrics");
         }
 
-        const sessions = data.sessions || [];
-        const overallAverage = data.overallAverage || 0;
+        const sessions: InterviewSession[] = Array.isArray(data.sessions)
+          ? (data.sessions as InterviewSession[])
+          : [];
+        const overallAverage =
+          typeof data.overallAverage === "number" ? data.overallAverage : 0;
 
         // Calculate trend (compare last 3 sessions to 3 before that)
         let trend = 0;
