@@ -2,13 +2,15 @@
 
 import { useUser } from '@clerk/nextjs';
 import { LoaderCircle, Mic, MicOff, Video, VideoOff, Volume2, VolumeX } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type InterviewQuestion = {
   question: string;
   skillFocus: string;
 };
+
+type InterviewDifficulty = 'easy' | 'medium' | 'hard';
 
 type AnswerEvaluation = {
   score: number;
@@ -39,6 +41,7 @@ const QUESTION_SPEECH_RATE = 1;
 
 export default function InterviewPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLoaded, isSignedIn } = useUser();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -73,6 +76,16 @@ export default function InterviewPage() {
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
   const [evaluationError, setEvaluationError] = useState('');
   const [isQuestionVoiceOn, setIsQuestionVoiceOn] = useState(true);
+
+  const selectedDifficulty = useMemo<InterviewDifficulty>(() => {
+    const value = searchParams.get('difficulty');
+
+    if (value === 'easy' || value === 'medium' || value === 'hard') {
+      return value;
+    }
+
+    return 'medium';
+  }, [searchParams]);
 
   const waitForSpeechVoices = async (): Promise<void> => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
@@ -222,7 +235,7 @@ export default function InterviewPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ questionCount: 6 }),
+          body: JSON.stringify({ questionCount: 6, difficulty: selectedDifficulty }),
         });
 
         const data = await response.json();
@@ -254,7 +267,7 @@ export default function InterviewPage() {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [isLoaded, isSignedIn, interviewStarted]);
+  }, [isLoaded, isSignedIn, interviewStarted, selectedDifficulty]);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !interviewStarted) {
@@ -610,6 +623,9 @@ export default function InterviewPage() {
             <h1 className="text-3xl font-bold text-white">Live Interview</h1>
             <p className="mt-1 text-sm text-zinc-400">
               The interview runs automatically from question to transcription to scoring.
+            </p>
+            <p className="mt-1 text-xs uppercase tracking-wider text-orange-300">
+              Difficulty: {selectedDifficulty}
             </p>
           </div>
           {!showConfirmation ? (

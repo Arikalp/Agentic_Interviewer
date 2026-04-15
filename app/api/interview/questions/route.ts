@@ -3,10 +3,19 @@ import { NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/mongodb';
 import {
   ensureIntroQuestionFirst,
+  type InterviewDifficulty,
   type InterviewQuestion,
   type ResumeInsights,
   generateInterviewQuestionsWithGroq,
 } from '@/lib/resume-analysis';
+
+function normalizeDifficulty(value: unknown): InterviewDifficulty {
+  if (value === 'easy' || value === 'medium' || value === 'hard') {
+    return value;
+  }
+
+  return 'medium';
+}
 
 function normalizeApiError(error: unknown) {
   const message = error instanceof Error ? error.message : 'Unexpected server error.';
@@ -35,11 +44,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json().catch(() => ({}))) as { questionCount?: number };
+    const body = (await request.json().catch(() => ({}))) as {
+      questionCount?: number;
+      difficulty?: unknown;
+    };
     const questionCount =
       typeof body.questionCount === 'number'
         ? Math.max(3, Math.min(10, Math.round(body.questionCount)))
         : 6;
+    const difficulty = normalizeDifficulty(body.difficulty);
 
     const db = await getMongoDb();
     const resumeDoc = await db.collection('resumeInsights').findOne({ userId });
@@ -58,6 +71,8 @@ export async function POST(request: Request) {
 
     if (
       existingQuestionDoc?.resumeHash === resumeDoc.resumeHash &&
+      ((existingQuestionDoc?.difficulty as InterviewDifficulty | undefined) ?? 'medium') ===
+        difficulty &&
       Array.isArray(existingQuestions) &&
       existingQuestions.length >= questionCount
     ) {
@@ -69,12 +84,14 @@ export async function POST(request: Request) {
       return NextResponse.json({
         questions: introFirstQuestions,
         reused: true,
+        difficulty,
       });
     }
 
     const generatedQuestions = await generateInterviewQuestionsWithGroq(
       resumeDoc.insights as ResumeInsights,
       questionCount,
+      difficulty,
     );
     const questions = ensureIntroQuestionFirst(generatedQuestions, questionCount);
 
@@ -86,6 +103,7 @@ export async function POST(request: Request) {
         $set: {
           userId,
           resumeHash: resumeDoc.resumeHash,
+          difficulty,
           questions,
           updatedAt: now,
           model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
@@ -97,7 +115,7 @@ export async function POST(request: Request) {
       { upsert: true },
     );
 
-    return NextResponse.json({ questions, reused: false });
+    return NextResponse.json({ questions, reused: false, difficulty });
   } catch (error) {
     const normalized = normalizeApiError(error);
     return NextResponse.json({ error: normalized.message }, { status: normalized.status });

@@ -16,6 +16,8 @@ export type InterviewQuestion = {
   skillFocus: string;
 };
 
+export type InterviewDifficulty = 'easy' | 'medium' | 'hard';
+
 export const INTRO_INTERVIEW_QUESTION: InterviewQuestion = {
   question:
     "Tell me about yourself. Please share your background, key experiences, and what you're looking for in your next role.",
@@ -201,6 +203,7 @@ export async function analyzeResumeWithGroq(resumeText: string): Promise<ResumeI
 export async function generateInterviewQuestionsWithGroq(
   insights: ResumeInsights,
   questionCount = 6,
+  difficulty: InterviewDifficulty = 'medium',
 ): Promise<InterviewQuestion[]> {
   const apiKey = process.env.GROQ_API_KEY;
 
@@ -225,7 +228,7 @@ export async function generateInterviewQuestionsWithGroq(
       },
       {
         role: 'user',
-        content: `Create ${remainingQuestionCount} interview questions using this resume insight JSON:\n${JSON.stringify(insights)}\n\nRules: Start with general/behavioral questions then move to technical. Include mix of behavioral + technical + project-based questions. Keep each concise.`,
+        content: `Create ${remainingQuestionCount} interview questions using this resume insight JSON:\n${JSON.stringify(insights)}\n\nDifficulty level: ${difficulty}.\nRules: Start with general/behavioral questions then move to technical. Include mix of behavioral + technical + project-based questions. Keep each concise.\nDifficulty guidance:\n- easy: beginner-friendly, foundational concepts, direct phrasing, low complexity follow-ups.\n- medium: practical real-world scenarios, moderate depth, some trade-off discussion.\n- hard: senior-level depth, architecture/trade-offs, edge cases, performance and scaling considerations.`,
       },
     ],
   });

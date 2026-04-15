@@ -16,6 +16,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+type InterviewDifficulty = 'easy' | 'medium' | 'hard';
+
 type InterviewSession = {
   id: string;
   date: string;
@@ -35,6 +37,7 @@ export default function DashboardPage() {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [sessionsError, setSessionsError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<InterviewDifficulty>('medium');
   const itemsPerPage = 5;
 
   useEffect(() => {
@@ -101,10 +104,13 @@ export default function DashboardPage() {
 
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
-                  href="/interview"
+                  href={{
+                    pathname: '/interview',
+                    query: { difficulty: selectedDifficulty },
+                  }}
                   className="rounded-full bg-linear-to-r from-orange-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:shadow-[0_0_24px_rgba(249,115,22,0.4)]"
                 >
-                  Start New Interview
+                  Start New Interview ({selectedDifficulty})
                 </Link>
                 <Link
                   href="/"
@@ -119,6 +125,31 @@ export default function DashboardPage() {
                   Open Profile
                   <ArrowUpRight className="h-4 w-4" />
                 </Link>
+              </div>
+
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  Interview Difficulty
+                </p>
+                <div className="inline-flex rounded-full border border-zinc-700 bg-black/30 p-1">
+                  {(['easy', 'medium', 'hard'] as InterviewDifficulty[]).map((level) => {
+                    const isActive = selectedDifficulty === level;
+
+                    return (
+                      <button
+                        key={level}
+                        onClick={() => setSelectedDifficulty(level)}
+                        className={`rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
+                          isActive
+                            ? 'bg-orange-500 text-white'
+                            : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                        }`}
+                      >
+                        {level}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
