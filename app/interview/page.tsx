@@ -1,7 +1,7 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import { LoaderCircle, Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import { LoaderCircle, Mic, MicOff, Video, VideoOff, Volume2, VolumeX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -35,6 +35,7 @@ type InterviewPhase =
 
 const ANSWER_WINDOW_MS = 30000;
 const REVIEW_DELAY_MS = 1600;
+const QUESTION_SPEECH_RATE = 1;
 
 export default function InterviewPage() {
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function InterviewPage() {
   const recordedChunksRef = useRef<BlobPart[]>([]);
   const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reviewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const [permissionError, setPermissionError] = useState('');
   const [isCameraOn, setIsCameraOn] = useState(false);
@@ -70,6 +72,34 @@ export default function InterviewPage() {
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<EvaluatedAnswer[]>([]);
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
   const [evaluationError, setEvaluationError] = useState('');
+  const [isQuestionVoiceOn, setIsQuestionVoiceOn] = useState(true);
+
+  const waitForSpeechVoices = async (): Promise<void> => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      return;
+    }
+
+    const voices = window.speechSynthesis.getVoices();
+
+    if (voices.length > 0) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      const onVoicesChanged = () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        clearTimeout(timeoutId);
+        resolve();
+      };
+
+      const timeoutId = setTimeout(() => {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        resolve();
+      }, 1200);
+
+      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+    });
+  };
 
   const clearPendingTimers = () => {
     if (recordingTimeoutRef.current) {
@@ -81,6 +111,43 @@ export default function InterviewPage() {
       clearTimeout(reviewTimeoutRef.current);
       reviewTimeoutRef.current = null;
     }
+  };
+
+  const stopQuestionSpeech = () => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      return;
+    }
+
+    speechUtteranceRef.current = null;
+    window.speechSynthesis.cancel();
+  };
+
+  const speakQuestion = async (text: string): Promise<void> => {
+    if (typeof window === 'undefined' || !window.speechSynthesis || !isQuestionVoiceOn) {
+      return;
+    }
+
+    await waitForSpeechVoices();
+
+    await new Promise<void>((resolve) => {
+      stopQuestionSpeech();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = QUESTION_SPEECH_RATE;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      utterance.onend = () => {
+        speechUtteranceRef.current = null;
+        resolve();
+      };
+      utterance.onerror = () => {
+        speechUtteranceRef.current = null;
+        resolve();
+      };
+
+      speechUtteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    });
   };
 
   useEffect(() => {
@@ -207,6 +274,7 @@ export default function InterviewPage() {
   useEffect(() => {
     return () => {
       clearPendingTimers();
+      stopQuestionSpeech();
 
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
@@ -243,50 +311,61 @@ export default function InterviewPage() {
       return;
     }
 
-    setEvaluationError('');
-    setRecordedAudioUrl('');
-    setRecordedAudioMimeType('audio/webm');
-    setAnswerText('');
-    setIsTranscribing(false);
+    let cancelled = false;
 
-    const stream = streamRef.current;
-    const audioTracks = stream.getAudioTracks();
-    const audioOnlyStream = audioTracks.length > 0 ? new MediaStream(audioTracks) : null;
+    const startQuestionFlow = async () => {
+      await speakQuestion(currentQuestion.question);
 
-    if (!audioOnlyStream) {
-      setEvaluationError('Microphone audio is not available. Please allow microphone access.');
-      setPhase('complete');
-      return;
-    }
+      if (cancelled) {
+        return;
+      }
 
-    if (typeof MediaRecorder === 'undefined') {
-      setEvaluationError('Audio recording is not supported in this browser.');
-      setPhase('complete');
-      return;
-    }
+      setEvaluationError('');
+      setRecordedAudioUrl('');
+      setRecordedAudioMimeType('audio/webm');
+      setAnswerText('');
+      setIsTranscribing(false);
 
-    recordedChunksRef.current = [];
-    const preferredMimeTypes = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/mp4',
-      'audio/ogg;codecs=opus',
-    ];
+      const stream = streamRef.current;
+      const audioTracks = stream.getAudioTracks();
+      const audioOnlyStream = audioTracks.length > 0 ? new MediaStream(audioTracks) : null;
 
-    const supportedMimeType = preferredMimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
+      if (!audioOnlyStream) {
+        setEvaluationError('Microphone audio is not available. Please allow microphone access.');
+        setPhase('complete');
+        return;
+      }
 
-    let recorder: MediaRecorder;
-    try {
-      recorder = supportedMimeType
-        ? new MediaRecorder(audioOnlyStream, { mimeType: supportedMimeType })
-        : new MediaRecorder(audioOnlyStream);
-    } catch {
-      setEvaluationError(
-        'Could not initialize microphone recording on this device/browser. Try Chrome or Edge and allow mic access.',
+      if (typeof MediaRecorder === 'undefined') {
+        setEvaluationError('Audio recording is not supported in this browser.');
+        setPhase('complete');
+        return;
+      }
+
+      recordedChunksRef.current = [];
+      const preferredMimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ];
+
+      const supportedMimeType = preferredMimeTypes.find((type) =>
+        MediaRecorder.isTypeSupported(type),
       );
-      setPhase('complete');
-      return;
-    }
+
+      let recorder: MediaRecorder;
+      try {
+        recorder = supportedMimeType
+          ? new MediaRecorder(audioOnlyStream, { mimeType: supportedMimeType })
+          : new MediaRecorder(audioOnlyStream);
+      } catch {
+        setEvaluationError(
+          'Could not initialize microphone recording on this device/browser. Try Chrome or Edge and allow mic access.',
+        );
+        setPhase('complete');
+        return;
+      }
 
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -421,26 +500,42 @@ export default function InterviewPage() {
       }, REVIEW_DELAY_MS);
     };
 
-    mediaRecorderRef.current = recorder;
+      mediaRecorderRef.current = recorder;
 
-    try {
-      recorder.start();
-      setIsRecording(true);
-      setPhase('recording');
-    } catch {
-      setEvaluationError(
-        'Failed to start recording. Your browser may not support this recording format.',
-      );
-      setPhase('complete');
+      try {
+        recorder.start();
+        setIsRecording(true);
+        setPhase('recording');
+      } catch {
+        setEvaluationError(
+          'Failed to start recording. Your browser may not support this recording format.',
+        );
+        setPhase('complete');
+        return;
+      }
+
+      recordingTimeoutRef.current = setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+      }, ANSWER_WINDOW_MS);
+    };
+
+    void startQuestionFlow();
+
+    return () => {
+      cancelled = true;
+      stopQuestionSpeech();
+    };
+  }, [phase, currentQuestion, currentQuestionIndex, isQuestionVoiceOn]);
+
+  useEffect(() => {
+    if (isQuestionVoiceOn) {
       return;
     }
 
-    recordingTimeoutRef.current = setTimeout(() => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        mediaRecorderRef.current.stop();
-      }
-    }, ANSWER_WINDOW_MS);
-  }, [phase, currentQuestion, currentQuestionIndex]);
+    stopQuestionSpeech();
+  }, [isQuestionVoiceOn]);
 
   if (!isLoaded) {
     return (
@@ -486,7 +581,7 @@ export default function InterviewPage() {
                   setShowConfirmation(false);
                   setHasConfirmedStart(true);
                 }}
-                className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:shadow-lg hover:shadow-orange-500/50"
+                className="flex-1 rounded-lg bg-linear-to-r from-orange-500 to-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:shadow-lg hover:shadow-orange-500/50"
               >
                 Start Interview
               </button>
@@ -517,14 +612,27 @@ export default function InterviewPage() {
               The interview runs automatically from question to transcription to scoring.
             </p>
           </div>
-          {!showConfirmation && (
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:text-white"
-            >
-              Back to Dashboard
-            </button>
-          )}
+          {!showConfirmation ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsQuestionVoiceOn((prev) => !prev)}
+                className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+              >
+                {isQuestionVoiceOn ? (
+                  <Volume2 className="h-4 w-4 text-orange-300" />
+                ) : (
+                  <VolumeX className="h-4 w-4" />
+                )}
+                Question Voice {isQuestionVoiceOn ? 'On' : 'Off'}
+              </button>
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {hasConfirmedStart && (
