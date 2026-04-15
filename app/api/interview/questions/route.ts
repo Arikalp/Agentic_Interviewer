@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/mongodb';
 import {
+  ensureIntroQuestionFirst,
   type InterviewQuestion,
   type ResumeInsights,
   generateInterviewQuestionsWithGroq,
@@ -60,16 +61,22 @@ export async function POST(request: Request) {
       Array.isArray(existingQuestions) &&
       existingQuestions.length >= questionCount
     ) {
+      const introFirstQuestions = ensureIntroQuestionFirst(
+        existingQuestions as InterviewQuestion[],
+        questionCount,
+      );
+
       return NextResponse.json({
-        questions: (existingQuestions as InterviewQuestion[]).slice(0, questionCount),
+        questions: introFirstQuestions,
         reused: true,
       });
     }
 
-    const questions = await generateInterviewQuestionsWithGroq(
+    const generatedQuestions = await generateInterviewQuestionsWithGroq(
       resumeDoc.insights as ResumeInsights,
       questionCount,
     );
+    const questions = ensureIntroQuestionFirst(generatedQuestions, questionCount);
 
     const now = new Date();
 

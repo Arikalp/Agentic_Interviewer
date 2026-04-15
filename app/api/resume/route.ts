@@ -2,7 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/mongodb';
-import { analyzeResumeWithGroq } from '@/lib/resume-analysis';
+import { analyzeResumeWithGroq, normalizeResumeInsights } from '@/lib/resume-analysis';
 import { extractResumeText } from '@/lib/resume-parser';
 
 function normalizeApiError(error: unknown) {
@@ -39,8 +39,22 @@ export async function GET() {
       return NextResponse.json({ insights: null });
     }
 
+    const normalizedInsights = normalizeResumeInsights(doc.insights);
+
+    if (JSON.stringify(doc.insights) !== JSON.stringify(normalizedInsights)) {
+      await db.collection('resumeInsights').updateOne(
+        { userId },
+        {
+          $set: {
+            insights: normalizedInsights,
+            updatedAt: new Date(),
+          },
+        },
+      );
+    }
+
     return NextResponse.json({
-      insights: doc.insights,
+      insights: normalizedInsights,
       metadata: {
         fileName: doc.fileName,
         fileType: doc.fileType,
@@ -94,15 +108,29 @@ export async function POST(request: Request) {
     );
 
     if (existing?.resumeHash === resumeHash && existing?.insights) {
+      const normalizedInsights = normalizeResumeInsights(existing.insights);
+
+      if (JSON.stringify(existing.insights) !== JSON.stringify(normalizedInsights)) {
+        await db.collection('resumeInsights').updateOne(
+          { userId },
+          {
+            $set: {
+              insights: normalizedInsights,
+              updatedAt: new Date(),
+            },
+          },
+        );
+      }
+
       return NextResponse.json({
-        insights: existing.insights,
+        insights: normalizedInsights,
         updatedAt: existing.updatedAt,
         reused: true,
         message: 'Resume unchanged. Reused existing analysis to save cost.',
       });
     }
 
-    const insights = await analyzeResumeWithGroq(text);
+    const insights = normalizeResumeInsights(await analyzeResumeWithGroq(text));
 
     const now = new Date();
 

@@ -32,6 +32,7 @@ type ResumeInsights = {
   suggestedRoles: string[];
   interviewFocus: string[];
   estimatedExperienceYears: number;
+  atsScore: number;
 };
 
 const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
@@ -71,6 +72,31 @@ export default function ProfilePage() {
   }
 
   const averageScore = overallAverage;
+  const atsScore = resumeInsights?.atsScore ?? 0;
+  const atsWidthClass =
+    atsScore >= 95
+      ? 'w-full'
+      : atsScore >= 90
+        ? 'w-11/12'
+        : atsScore >= 80
+          ? 'w-10/12'
+          : atsScore >= 70
+            ? 'w-9/12'
+            : atsScore >= 60
+              ? 'w-8/12'
+              : atsScore >= 50
+                ? 'w-7/12'
+                : atsScore >= 40
+                  ? 'w-6/12'
+                  : atsScore >= 30
+                    ? 'w-5/12'
+                    : atsScore >= 20
+                      ? 'w-4/12'
+                      : atsScore >= 10
+                        ? 'w-3/12'
+                        : atsScore > 0
+                          ? 'w-2/12'
+                          : 'w-0';
 
   const topSuggestions = useMemo(() => {
     if (resumeInsights?.interviewFocus && resumeInsights.interviewFocus.length > 0) {
@@ -271,6 +297,19 @@ export default function ProfilePage() {
                 <p className="font-medium text-white">
                   {resumeInsights ? `${resumeInsights.estimatedExperienceYears} years` : 'Analyze resume'}
                 </p>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-black/20 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-zinc-500">Resume ATS Score</p>
+                  <p className="font-semibold text-white">
+                    {resumeInsights ? `${atsScore}/100` : 'Analyze resume'}
+                  </p>
+                </div>
+                <div className="h-2 rounded-full bg-zinc-800">
+                  <div
+                    className={`h-2 rounded-full bg-linear-to-r from-emerald-500 to-teal-400 transition-all ${resumeInsights ? atsWidthClass : 'w-0'}`}
+                  />
+                </div>
               </div>
             </div>
           </section>

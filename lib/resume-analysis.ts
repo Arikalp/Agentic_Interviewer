@@ -8,11 +8,18 @@ export type ResumeInsights = {
   suggestedRoles: string[];
   interviewFocus: string[];
   estimatedExperienceYears: number;
+  atsScore: number;
 };
 
 export type InterviewQuestion = {
   question: string;
   skillFocus: string;
+};
+
+export const INTRO_INTERVIEW_QUESTION: InterviewQuestion = {
+  question:
+    "Tell me about yourself. Please share your background, key experiences, and what you're looking for in your next role.",
+  skillFocus: 'Introduction & Communication',
 };
 
 export type AnswerEvaluation = {
@@ -35,8 +42,37 @@ function asStringArray(value: unknown): string[] {
     .slice(0, 12);
 }
 
+function computeFallbackAtsScore(candidate: Record<string, unknown>): number {
+  const skills = asStringArray(candidate.skills);
+  const strengths = asStringArray(candidate.strengths);
+  const improvementAreas = asStringArray(candidate.improvementAreas);
+  const suggestedRoles = asStringArray(candidate.suggestedRoles);
+
+  const estimatedExperienceYearsRaw =
+    typeof candidate.estimatedExperienceYears === 'number'
+      ? candidate.estimatedExperienceYears
+      : Number(candidate.estimatedExperienceYears ?? 0);
+
+  const estimatedExperienceYears = Number.isFinite(estimatedExperienceYearsRaw)
+    ? Math.max(0, Math.min(50, Math.round(estimatedExperienceYearsRaw)))
+    : 0;
+
+  const computed =
+    55 +
+    Math.min(skills.length, 12) * 2 +
+    Math.min(strengths.length, 8) * 2 +
+    Math.min(suggestedRoles.length, 5) +
+    Math.min(Math.floor(estimatedExperienceYears / 2), 8) -
+    Math.min(improvementAreas.length, 8) * 2;
+
+  return Math.max(35, Math.min(95, Math.round(computed)));
+}
+
 function sanitizeInsights(raw: unknown): ResumeInsights {
   const candidate = (raw || {}) as Record<string, unknown>;
+  const atsScoreRaw =
+    typeof candidate.atsScore === 'number' ? candidate.atsScore : Number(candidate.atsScore ?? 0);
+  const hasValidAtsScore = Number.isFinite(atsScoreRaw) && atsScoreRaw > 0;
 
   return {
     summary:
@@ -52,7 +88,14 @@ function sanitizeInsights(raw: unknown): ResumeInsights {
       typeof candidate.estimatedExperienceYears === 'number'
         ? Math.max(0, Math.min(50, Math.round(candidate.estimatedExperienceYears)))
         : 0,
+    atsScore: hasValidAtsScore
+      ? Math.max(0, Math.min(100, Math.round(atsScoreRaw)))
+      : computeFallbackAtsScore(candidate),
   };
+}
+
+export function normalizeResumeInsights(raw: unknown): ResumeInsights {
+  return sanitizeInsights(raw);
 }
 
 function sanitizeQuestions(raw: unknown): InterviewQuestion[] {
@@ -80,6 +123,24 @@ function sanitizeQuestions(raw: unknown): InterviewQuestion[] {
     .slice(0, 10);
 
   return questions;
+}
+
+export function ensureIntroQuestionFirst(
+  questions: InterviewQuestion[],
+  questionCount?: number,
+): InterviewQuestion[] {
+  const nonIntroQuestions = questions.filter((item) => {
+    const normalized = item.question.trim().toLowerCase();
+    return !(normalized.includes('tell me about yourself') || normalized.includes('introduce yourself'));
+  });
+
+  const ordered = [INTRO_INTERVIEW_QUESTION, ...nonIntroQuestions];
+
+  if (typeof questionCount === 'number' && Number.isFinite(questionCount)) {
+    return ordered.slice(0, Math.max(1, Math.round(questionCount)));
+  }
+
+  return ordered;
 }
 
 function sanitizeAnswerEvaluation(raw: unknown): AnswerEvaluation {
@@ -122,7 +183,7 @@ export async function analyzeResumeWithGroq(resumeText: string): Promise<ResumeI
       {
         role: 'system',
         content:
-          'You are an expert resume analyzer for interview preparation. Return only valid JSON with fields: summary (string), skills (string[]), strengths (string[]), improvementAreas (string[]), suggestedRoles (string[]), interviewFocus (string[]), estimatedExperienceYears (number). Keep arrays concise and practical.',
+          'You are an expert resume analyzer for interview preparation. Return only valid JSON with fields: summary (string), skills (string[]), strengths (string[]), improvementAreas (string[]), suggestedRoles (string[]), interviewFocus (string[]), estimatedExperienceYears (number), atsScore (number 0-100). Keep arrays concise and practical.',
       },
       {
         role: 'user',
@@ -149,13 +210,7 @@ export async function generateInterviewQuestionsWithGroq(
 
   const groq = new Groq({ apiKey });
 
-  // Start with an introduction question
-  const introQuestion: InterviewQuestion = {
-    question: 'Tell me about yourself. Please share your background, key experiences, and what you\'re looking for in your next role.',
-    skillFocus: 'Introduction & Communication',
-  };
-
-  // Request one fewer question since we\'re adding the intro
+  // Request one fewer question since we are adding the intro ourselves.
   const remainingQuestionCount = Math.max(1, questionCount - 1);
 
   const completion = await groq.chat.completions.create({
@@ -179,12 +234,9 @@ export async function generateInterviewQuestionsWithGroq(
   const parsed = JSON.parse(rawContent);
   const questions = sanitizeQuestions(parsed);
 
-  // Combine intro question with generated questions
-  const allQuestions = [introQuestion, ...questions];
-
-  if (allQuestions.length === 1) {
+  if (questions.length === 0) {
     return [
-      introQuestion,
+      INTRO_INTERVIEW_QUESTION,
       {
         question: 'Tell me about a project where you solved a difficult technical problem.',
         skillFocus: 'Project storytelling',
@@ -192,7 +244,7 @@ export async function generateInterviewQuestionsWithGroq(
     ];
   }
 
-  return allQuestions;
+  return ensureIntroQuestionFirst(questions, questionCount);
 }
 
 export async function evaluateAnswerWithGroq(input: {
