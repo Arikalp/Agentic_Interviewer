@@ -35,9 +35,47 @@ type InterviewPhase =
   | 'review'
   | 'complete';
 
-const ANSWER_WINDOW_MS = 30000;
+const MIN_ANSWER_WINDOW_MS = 20000;
+const MAX_ANSWER_WINDOW_MS = 120000;
 const REVIEW_DELAY_MS = 1600;
 const QUESTION_SPEECH_RATE = 1;
+
+function computeDynamicAnswerWindowMs(input: {
+  question: InterviewQuestion;
+  difficulty: InterviewDifficulty;
+}): number {
+  const rawQuestion = input.question.question || '';
+  const wordCount = rawQuestion
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+  // Base time + per-word budget. Harder rounds get more buffer.
+  const baseMsByDifficulty: Record<InterviewDifficulty, number> = {
+    easy: 20000,
+    medium: 28000,
+    hard: 36000,
+  };
+
+  const perWordMsByDifficulty: Record<InterviewDifficulty, number> = {
+    easy: 700,
+    medium: 900,
+    hard: 1100,
+  };
+
+  const introBonusMs =
+    input.question.skillFocus.toLowerCase().includes('introduction') ||
+    rawQuestion.toLowerCase().includes('tell me about yourself')
+      ? 10000
+      : 0;
+
+  const computed =
+    baseMsByDifficulty[input.difficulty] +
+    wordCount * perWordMsByDifficulty[input.difficulty] +
+    introBonusMs;
+
+  return Math.max(MIN_ANSWER_WINDOW_MS, Math.min(MAX_ANSWER_WINDOW_MS, computed));
+}
 
 export default function InterviewPage() {
   const router = useRouter();
@@ -300,6 +338,17 @@ export default function InterviewPage() {
     [questions, currentQuestionIndex],
   );
 
+  const currentAnswerWindowMs = useMemo(() => {
+    if (!currentQuestion) {
+      return MIN_ANSWER_WINDOW_MS;
+    }
+
+    return computeDynamicAnswerWindowMs({
+      question: currentQuestion,
+      difficulty: selectedDifficulty,
+    });
+  }, [currentQuestion, selectedDifficulty]);
+
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !interviewStarted) {
       return;
@@ -531,7 +580,7 @@ export default function InterviewPage() {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
           mediaRecorderRef.current.stop();
         }
-      }, ANSWER_WINDOW_MS);
+      }, currentAnswerWindowMs);
     };
 
     void startQuestionFlow();
@@ -540,7 +589,7 @@ export default function InterviewPage() {
       cancelled = true;
       stopQuestionSpeech();
     };
-  }, [phase, currentQuestion, currentQuestionIndex, isQuestionVoiceOn]);
+  }, [phase, currentQuestion, currentQuestionIndex, isQuestionVoiceOn, currentAnswerWindowMs]);
 
   useEffect(() => {
     if (isQuestionVoiceOn) {
@@ -580,7 +629,7 @@ export default function InterviewPage() {
           <div className="rounded-2xl border border-white/10 bg-black p-8 max-w-md">
             <h2 className="text-2xl font-bold text-white mb-4">Ready to start?</h2>
             <p className="text-zinc-400 mb-6">
-              Make sure your camera and microphone are properly positioned. You'll have 30 seconds to answer each question.
+              Make sure your camera and microphone are properly positioned. Each question has a dynamic answer window based on difficulty and complexity.
             </p>
             <div className="flex gap-3">
               <button
@@ -686,7 +735,7 @@ export default function InterviewPage() {
             <div className="mt-4 rounded-xl border border-zinc-800 bg-black/20 p-4">
               <p className="mb-3 text-sm font-medium text-zinc-200">Automatic answer pipeline</p>
               <p className="text-xs text-zinc-500">
-                Each question records for about {Math.round(ANSWER_WINDOW_MS / 1000)} seconds, then
+                Each question gets a dynamic recording window (about {Math.round(currentAnswerWindowMs / 1000)} seconds for the current prompt), then
                 Whisper transcribes it and the evaluator scores it automatically.
               </p>
               <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 text-sm text-zinc-200">
