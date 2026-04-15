@@ -135,7 +135,7 @@ export default function DemoSection() {
                   <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-white/[0.03] p-1.5 sm:p-2 border border-white/5">
                     <input
                       type="text"
-                      placeholder="Type your answer..."
+                      placeholder="Speak your answer aloud..."
                       className="flex-1 bg-transparent px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-zinc-300 placeholder-zinc-600 outline-none"
                       readOnly
                     />
