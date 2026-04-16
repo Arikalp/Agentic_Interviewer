@@ -1,42 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Intervo
 
-## Collaboration Rules
+Live app: [https://intervoo.vercel.app/](https://intervoo.vercel.app/)
 
-- Every collaborator must create and work on their own branch (for example: `feature/<name>`, `working/<name>`, etc.).
-- Do not push code directly to `main` under any condition.
-- <span style="color:#d97706;"><strong>Do not forget to pull `main` before starting work on any feature.</strong></span>
+Intervo is an AI-powered mock interview platform built with Next.js. It helps users upload a resume, generate tailored interview questions, practice realistic video interviews, and review performance insights with AI-driven feedback.
+
+## What It Does
+
+- Resume-based interview question generation
+- Real-time AI interview experience with video and voice flows
+- Interview transcription, evaluation, and scoring endpoints
+- Personalized performance insights and improvement guidance
+- Authentication-driven dashboard, profile, signup, and login flows
+
+## Tech Stack
+
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- Clerk for authentication
+- MongoDB for persistence
+- Groq-powered AI workflows
+- Framer Motion for UI animations
+- Vercel Analytics for usage tracking
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and start the dev server:
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:8000](http://localhost:8000) in your browser.
+
+## Available Scripts
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm run start
+npm run lint
+npm run format
+npm run check
 ```
 
-Open [http://localhost:5000](http://localhost:5000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The app expects these environment variables:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `MONGODB_URI`
+- `MONGODB_DB_NAME`
+- `GROQ_API_KEY`
+- `GROQ_MODEL`
 
-## Learn More
+## Main Routes
 
-To learn more about Next.js, take a look at the following resources:
+- `/` landing page
+- `/login` sign in
+- `/signup` sign up
+- `/interview` interview experience
+- `/dashboard` user dashboard
+- `/profile` user profile
+- `/features`, `/demo`, `/how-it-works`, `/insights` marketing sections
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API Routes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `/api/resume`
+- `/api/interview/questions`
+- `/api/interview/transcribe`
+- `/api/interview/evaluate`
+- `/api/interview/scores`
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `app/` Next.js app router pages and API routes
+- `components/landing/` landing page sections and UI
+- `components/ui/` reusable UI primitives
+- `lib/` MongoDB, resume parsing, and AI helpers
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+The project is deployed on Vercel and can be accessed here:
+
+- [https://intervoo.vercel.app/](https://intervoo.vercel.app/)
