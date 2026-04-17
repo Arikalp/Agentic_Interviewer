@@ -1,6 +1,4 @@
 import mammoth from 'mammoth';
-import path from 'path';
-import { pathToFileURL } from 'url';
 
 export const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -9,29 +7,20 @@ type ParsedResume = {
   detectedType: 'pdf' | 'docx' | 'txt';
 };
 
-let pdfWorkerConfigured = false;
-
-function configurePdfWorker(PDFParse: { setWorker(workerSrc?: string): string }) {
-  if (pdfWorkerConfigured) {
-    return;
-  }
-
-  const workerPath = path.join(
-    process.cwd(),
-    'node_modules',
-    'pdf-parse',
-    'dist',
-    'pdf-parse',
-    'web',
-    'pdf.worker.mjs',
-  );
-
-  PDFParse.setWorker(pathToFileURL(workerPath).href);
-  pdfWorkerConfigured = true;
-}
-
 function normalizeText(text: string) {
   return text.replace(/\s+/g, ' ').trim();
+}
+
+async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  try {
+    const pdfParse = (await import('pdf-parse')).default;
+    const parsed = await pdfParse(buffer);
+    return parsed.text || '';
+  } catch (error) {
+    throw new Error(
+      `Failed to extract text from PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
+  }
 }
 
 export async function extractResumeText(file: File): Promise<ParsedResume> {
@@ -43,27 +32,9 @@ export async function extractResumeText(file: File): Promise<ParsedResume> {
   const fileName = file.name.toLowerCase();
 
   if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
-    const pdfParseModule = await import('pdf-parse');
-    const PDFParse = pdfParseModule.PDFParse;
-
-    if (typeof PDFParse !== 'function') {
-      throw new Error('PDF parser is not available in the installed pdf-parse package.');
-    }
-
-    configurePdfWorker(PDFParse);
-
-    const parser = new PDFParse({ data: buffer });
-    let parsedText = '';
-
-    try {
-      const parsed = await parser.getText();
-      parsedText = parsed.text || '';
-    } finally {
-      await parser.destroy();
-    }
-
+    const pdfText = await extractTextFromPdf(buffer);
     return {
-      text: normalizeText(parsedText),
+      text: normalizeText(pdfText),
       detectedType: 'pdf',
     };
   }
