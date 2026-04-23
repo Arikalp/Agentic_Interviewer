@@ -25,10 +25,11 @@ export default function LoginPage() {
         
         <div className="flex justify-center">
           <SignIn
+            routing="hash"
             appearance={{
               elements: {
                 rootBox: 'w-full',
-                card: 'bg-[#1a1a1a] border border-zinc-800 shadow-xl',
+                card: 'bg-[#1a1a1a]  border border-zinc-800 shadow-xl',
                 formButtonPrimary: 'bg-[#6c47ff] hover:bg-[#5a3cd6] text-white',
                 footerActionLink: 'text-[#6c47ff] hover:text-[#7d5aff]',
                 formFieldInput: 'bg-[#0f0f0f] border-zinc-700 text-white focus:border-[#6c47ff]',

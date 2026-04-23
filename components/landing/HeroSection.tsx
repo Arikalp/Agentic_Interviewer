@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Play, Mic, Video, Clock } from "lucide-react";
+import Image from "next/image";
+import { Play, Mic, Clock } from "lucide-react";
 
 export default function HeroSection() {
   return (
@@ -24,7 +25,7 @@ export default function HeroSection() {
         />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8 w-full sm:px-4 md:px-6 lg:px-8 w-full">
+      <div className="relative mx-auto max-w-7xl w-full px-3 sm:px-4 md:px-6 lg:px-8">
         <div className="grid items-center gap-8 md:gap-12 lg:gap-20 lg:grid-cols-2">
           {/* Left — Text */}
           <motion.div
@@ -38,7 +39,7 @@ export default function HeroSection() {
               <span className="sm:hidden">AI Mock Interviews</span>
             </div>
 
-            <h1 className="mb-4 sm:mb-6 text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-[1.15] tracking-tight">
+            <h1 className="mb-4 sm:mb-6 max-w-[12ch] text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold leading-[1.15] tracking-tight">
               Crack Interviews{" "}
               <span className="gradient-text">with AI</span>
             </h1>
@@ -121,7 +122,7 @@ export default function HeroSection() {
                       <Mic className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
                     </div>
                     <span className="text-xs sm:text-sm font-semibold text-orange-400">
-                      Intervo
+                      Interviewer
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm leading-relaxed text-zinc-300">
@@ -133,15 +134,12 @@ export default function HeroSection() {
 
                 {/* User video preview */}
                 <div className="relative overflow-hidden rounded-lg sm:rounded-xl bg-gradient-to-br from-zinc-900 to-zinc-800 aspect-video">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="mx-auto mb-2 sm:mb-3 flex h-10 w-10 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-white/10">
-                        <Video className="h-5 w-5 sm:h-6 sm:w-6 text-zinc-400" />
-                      </div>
-                      <p className="text-xs sm:text-sm text-zinc-500">Your Camera Feed</p>
-                    </div>
-                  </div>
-
+                  <Image
+                    src="/interview_demo.png"
+                    alt="Camera Feed"
+                    fill
+                    className="object-cover"
+                  />
                   {/* Recording indicator */}
                   <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-1 sm:px-2.5 sm:py-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse-glow" />

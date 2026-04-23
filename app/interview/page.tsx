@@ -723,6 +723,7 @@ export default function InterviewPage() {
                 playsInline
                 muted
                 className="aspect-video w-full object-cover"
+                style={{ transform: 'scaleX(-1)' }}
               />
             </div>
 
@@ -780,7 +781,7 @@ export default function InterviewPage() {
             ) : null}
           </section>
 
-          <section className="rounded-2xl border border-zinc-800 bg-linear-to-br from-[#1a1a1a] to-[#0f0f0f] p-6">
+          <section className="rounded-2xl border border-orange-500/20 bg-linear-to-br from-[#2a1406] via-[#1b120d] to-[#0f0f0f] p-6">
             <p className="mb-2 text-xs uppercase tracking-wider text-[#fb923c]">Intervo</p>
 
             {isLoadingQuestions ? (
@@ -795,17 +796,17 @@ export default function InterviewPage() {
 
             {!isLoadingQuestions && !questionError && currentQuestion ? (
               <>
-                <div className="mb-4 rounded-xl border border-zinc-800 bg-black/20 p-4">
-                  <p className="mb-2 text-xs text-zinc-500">
+                <div className="mb-4 rounded-xl border border-orange-500/25 bg-orange-500/10 p-4">
+                  <p className="mb-2 text-xs text-orange-200/80">
                     Question {currentQuestionIndex + 1} of {questions.length}
                   </p>
-                  <p className="text-base font-medium text-white">{currentQuestion.question}</p>
-                  <p className="mt-3 text-xs text-zinc-400">Focus: {currentQuestion.skillFocus}</p>
+                  <p className="text-base font-semibold text-orange-50">{currentQuestion.question}</p>
+                  <p className="mt-3 text-xs text-orange-100/75">Focus: {currentQuestion.skillFocus}</p>
                 </div>
 
-                <div className="rounded-xl border border-zinc-800 bg-black/20 p-4">
-                  <p className="mb-2 text-sm font-medium text-zinc-200">Current evaluation status</p>
-                  <p className="text-sm text-zinc-400">
+                <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+                  <p className="mb-2 text-sm font-medium text-orange-100">Current evaluation status</p>
+                  <p className="text-sm text-orange-100/75">
                     {phase === 'ready'
                       ? 'Starting automatically.'
                       : phase === 'recording'
@@ -823,7 +824,7 @@ export default function InterviewPage() {
                 </div>
               </>
             ) : phase === 'complete' ? (
-              <div className="rounded-xl border border-zinc-800 bg-black/20 p-4 text-sm text-zinc-300">
+              <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-sm text-orange-100/85">
                 The automated interview is finished. Review the scores on the left and return to the
                 dashboard when you are done.
               </div>

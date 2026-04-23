@@ -147,19 +147,16 @@ export default function DemoSection() {
 
                 {/* Video preview */}
                 <div className="space-y-2 sm:space-y-3 lg:col-span-2 hidden sm:block">
-                  <div className="relative overflow-hidden rounded-lg sm:rounded-xl bg-gradient-to-br from-zinc-900 to-zinc-800 aspect-[4/3]">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="mx-auto mb-2 flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-white/10">
-                          <Video className="h-4 w-4 sm:h-5 sm:w-5 text-zinc-500" />
-                        </div>
-                        <p className="text-[10px] sm:text-xs text-zinc-600">Camera Preview</p>
-                      </div>
-                    </div>
-                    <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 flex items-center gap-1 rounded bg-black/60 px-1.5 sm:px-2 py-0.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                      <span className="text-[8px] sm:text-[9px] text-zinc-400">LIVE</span>
-                    </div>
+                  <div className="relative overflow-hidden rounded-lg sm:rounded-xl bg-linear-to-br from-zinc-900 to-zinc-800 aspect-4/3">
+                  <img
+                    src="/interview_demo.png"
+                    alt="Interview Demo"
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 flex items-center gap-1 rounded bg-black/60 px-1.5 sm:px-2 py-0.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    <span className="text-[8px] sm:text-[9px] text-zinc-400">LIVE</span>
+                  </div>
                   </div>
 
                   {/* Controls */}
