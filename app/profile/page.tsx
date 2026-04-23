@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import {
   BadgeCheck,
+  BriefcaseBusiness,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -36,6 +37,7 @@ type ResumeInsights = {
 };
 
 const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_JOB_DESCRIPTION_LENGTH = 8000;
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) {
@@ -65,6 +67,10 @@ export default function ProfilePage() {
   const [overallAverage, setOverallAverage] = useState(0);
   const [interviewsError, setInterviewsError] = useState('');
   const [currentSessionPage, setCurrentSessionPage] = useState(1);
+  const [jobDescription, setJobDescription] = useState('');
+  const [isSavingJobDescription, setIsSavingJobDescription] = useState(false);
+  const [jobDescriptionError, setJobDescriptionError] = useState('');
+  const [jobDescriptionMessage, setJobDescriptionMessage] = useState('');
   const sessionsPerPage = 5;
 
   if (isLoaded && !isSignedIn) {
@@ -129,6 +135,10 @@ export default function ProfilePage() {
           setResumeInsights(data.insights as ResumeInsights);
           setInsightsUpdatedAt(data?.metadata?.updatedAt || null);
         }
+
+        setJobDescription(
+          typeof data?.metadata?.jobDescription === 'string' ? data.metadata.jobDescription : '',
+        );
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to load existing resume insights.';
@@ -200,9 +210,12 @@ export default function ProfilePage() {
     try {
       setIsAnalyzing(true);
       setAnalysisError('');
+      setJobDescriptionError('');
 
       const formData = new FormData();
+      const normalizedJobDescription = jobDescription.trim().slice(0, MAX_JOB_DESCRIPTION_LENGTH);
       formData.append('resume', selectedResume);
+      formData.append('jobDescription', normalizedJobDescription);
 
       const response = await fetch('/api/resume', {
         method: 'POST',
@@ -217,11 +230,58 @@ export default function ProfilePage() {
 
       setResumeInsights(data.insights as ResumeInsights);
       setInsightsUpdatedAt(data.updatedAt || null);
+      setJobDescription(
+        typeof data?.jobDescription === 'string' ? data.jobDescription : normalizedJobDescription,
+      );
+      setJobDescriptionMessage(
+        normalizedJobDescription
+          ? 'Job description saved and used for interview question generation.'
+          : 'No job description saved. Questions will be based on your resume only.',
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to analyze resume.';
       setAnalysisError(message);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const onSaveJobDescription = async () => {
+    try {
+      setIsSavingJobDescription(true);
+      setJobDescriptionError('');
+      setJobDescriptionMessage('');
+
+      const normalizedJobDescription = jobDescription.trim().slice(0, MAX_JOB_DESCRIPTION_LENGTH);
+
+      const response = await fetch('/api/resume', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobDescription: normalizedJobDescription }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to save job description.');
+      }
+
+      setJobDescription(
+        typeof data?.jobDescription === 'string' ? data.jobDescription : normalizedJobDescription,
+      );
+      setInsightsUpdatedAt(data?.updatedAt || insightsUpdatedAt);
+      setJobDescriptionMessage(
+        normalizedJobDescription
+          ? 'Job description saved. Interview questions will align with this role.'
+          : 'Job description cleared. Questions will be based on your resume only.',
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save job description.';
+      setJobDescriptionError(message);
+    } finally {
+      setIsSavingJobDescription(false);
     }
   };
 
@@ -449,9 +509,57 @@ export default function ProfilePage() {
                 <Upload className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-white">Resume Upload</h2>
-                <p className="text-sm text-zinc-500">Upload a resume file up to 5 MB</p>
+                <h2 className="text-xl font-semibold text-white">Resume + Job Description</h2>
+                <p className="text-sm text-zinc-500">Save target role context and upload a resume file up to 5 MB</p>
               </div>
+            </div>
+
+            <div className="mb-4 rounded-xl border border-zinc-800 bg-black/20 p-4">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+                  <BriefcaseBusiness className="h-4 w-4 text-[#fb923c]" />
+                  Job Description (Optional)
+                </p>
+                <span className="text-xs text-zinc-500">
+                  {jobDescription.length}/{MAX_JOB_DESCRIPTION_LENGTH}
+                </span>
+              </div>
+
+              <textarea
+                value={jobDescription}
+                onChange={(event) => {
+                  setJobDescription(event.target.value.slice(0, MAX_JOB_DESCRIPTION_LENGTH));
+                  setJobDescriptionError('');
+                  setJobDescriptionMessage('');
+                }}
+                rows={6}
+                placeholder="Paste the job description here (responsibilities, required skills, role expectations)."
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-200 outline-hidden transition focus:border-[#f97316]/60"
+              />
+
+              <p className="mt-2 text-xs text-zinc-500">
+                If provided, interview questions are tailored to this job description. If empty, questions are generated from resume insights only.
+              </p>
+
+              <button
+                onClick={onSaveJobDescription}
+                disabled={isSavingJobDescription}
+                className="mt-3 rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-sm font-semibold text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSavingJobDescription ? 'Saving Job Description...' : 'Save Job Description'}
+              </button>
+
+              {jobDescriptionError ? (
+                <p className="mt-3 rounded-lg border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-300">
+                  {jobDescriptionError}
+                </p>
+              ) : null}
+
+              {jobDescriptionMessage ? (
+                <p className="mt-3 rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+                  {jobDescriptionMessage}
+                </p>
+              ) : null}
             </div>
 
             <label

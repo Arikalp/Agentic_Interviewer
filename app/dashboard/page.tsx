@@ -29,6 +29,10 @@ type InterviewSession = {
 
 const strengths = ['Structured communication', 'Clear project storytelling', 'Problem decomposition'];
 
+function clampScore(value: number): number {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn, user } = useUser();
@@ -47,6 +51,98 @@ export default function DashboardPage() {
 
     return 'medium';
   }, [overallAverage]);
+
+  const readinessIndex = useMemo(() => {
+    if (sessions.length === 0) {
+      return 0;
+    }
+
+    const recentSessions = sessions.slice(0, 5);
+    const recentAverage =
+      recentSessions.reduce((sum, session) => sum + session.score, 0) / recentSessions.length;
+    const previousSessions = sessions.slice(5, 10);
+
+    if (previousSessions.length === 0) {
+      return clampScore(recentAverage || overallAverage);
+    }
+
+    const previousAverage =
+      previousSessions.reduce((sum, session) => sum + session.score, 0) / previousSessions.length;
+    const trendBoost = (recentAverage - previousAverage) * 0.5;
+
+    return clampScore(recentAverage + trendBoost);
+  }, [overallAverage, sessions]);
+
+  const performanceSnapshotMessage = useMemo(() => {
+    if (loadingSessions) {
+      return 'Analyzing your latest interview performance...';
+    }
+
+    if (sessionsError) {
+      return 'Performance insights will appear once your scores are available.';
+    }
+
+    if (sessions.length === 0) {
+      return 'Complete your first mock interview to unlock personalized performance insights.';
+    }
+
+    if (sessions.length < 2) {
+      return 'Strong start. Continue practicing to build a reliable progress trend.';
+    }
+
+    const recentWindow = sessions.slice(0, 3);
+    const previousWindow = sessions.slice(3, 6);
+
+    if (previousWindow.length === 0) {
+      return 'Your latest sessions show steady preparation momentum.';
+    }
+
+    const recentAverage =
+      recentWindow.reduce((sum, session) => sum + session.score, 0) / recentWindow.length;
+    const previousAverage =
+      previousWindow.reduce((sum, session) => sum + session.score, 0) / previousWindow.length;
+    const delta = recentAverage - previousAverage;
+
+    if (delta >= 4) {
+      return 'Your recent scores show upward progress in clarity and structure.';
+    }
+
+    if (delta <= -4) {
+      return 'Recent scores dipped slightly. Focus on concise storytelling and examples next round.';
+    }
+
+    return 'Your recent scores are stable. Sharpening examples can push your scores higher.';
+  }, [loadingSessions, sessionsError, sessions]);
+
+  const readinessBarWidthClass = useMemo(() => {
+    const roundedToStep = Math.round(readinessIndex / 5) * 5;
+    const clampedStep = Math.max(0, Math.min(100, roundedToStep));
+    const widthByStep: Record<number, string> = {
+      0: 'w-0',
+      5: 'w-[5%]',
+      10: 'w-[10%]',
+      15: 'w-[15%]',
+      20: 'w-[20%]',
+      25: 'w-[25%]',
+      30: 'w-[30%]',
+      35: 'w-[35%]',
+      40: 'w-[40%]',
+      45: 'w-[45%]',
+      50: 'w-[50%]',
+      55: 'w-[55%]',
+      60: 'w-[60%]',
+      65: 'w-[65%]',
+      70: 'w-[70%]',
+      75: 'w-[75%]',
+      80: 'w-[80%]',
+      85: 'w-[85%]',
+      90: 'w-[90%]',
+      95: 'w-[95%]',
+      100: 'w-full',
+    };
+
+    return widthByStep[clampedStep] || 'w-0';
+  }, [readinessIndex]);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -190,11 +286,13 @@ export default function DashboardPage() {
               <ChartNoAxesCombined className="h-5 w-5" />
               <h2 className="text-base font-semibold text-white">Performance Snapshot</h2>
             </div>
-            <p className="text-sm text-zinc-400">Your recent scores show upward progress in clarity and structure.</p>
+            <p className="text-sm text-zinc-400">{performanceSnapshotMessage}</p>
             <div className="mt-4 h-2 rounded-full bg-zinc-800">
-              <div className="h-full w-[78%] rounded-full bg-linear-to-r from-orange-500 to-amber-400" />
+              <div
+                className={`h-full rounded-full bg-linear-to-r from-orange-500 to-amber-400 transition-all duration-500 ${readinessBarWidthClass}`}
+              />
             </div>
-            <p className="mt-2 text-xs text-zinc-500">Readiness index: 78%</p>
+            <p className="mt-2 text-xs text-zinc-500">Readiness index: {readinessIndex}%</p>
           </article>
 
           <article className="rounded-2xl border border-zinc-800 bg-linear-to-br from-[#1a1a1a] to-[#0f0f0f] p-6">

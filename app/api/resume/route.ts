@@ -5,6 +5,8 @@ import { getMongoDb } from '@/lib/mongodb';
 import { analyzeResumeWithGroq, normalizeResumeInsights } from '@/lib/resume-analysis';
 import { extractResumeText } from '@/lib/resume-parser';
 
+const MAX_JOB_DESCRIPTION_LENGTH = 8000;
+
 function normalizeApiError(error: unknown) {
   const message = error instanceof Error ? error.message : 'Unexpected server error.';
 
@@ -24,6 +26,14 @@ function normalizeApiError(error: unknown) {
   return { status: 500, message };
 }
 
+function normalizeJobDescription(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim().slice(0, MAX_JOB_DESCRIPTION_LENGTH);
+}
+
 export async function GET() {
   const { userId } = await auth();
 
@@ -37,6 +47,21 @@ export async function GET() {
 
     if (!doc) {
       return NextResponse.json({ insights: null });
+    }
+
+    const hasAnalyzedResume =
+      typeof doc.resumeHash === 'string' && doc.resumeHash.length > 0 && Boolean(doc.insights);
+
+    if (!hasAnalyzedResume) {
+      return NextResponse.json({
+        insights: null,
+        metadata: {
+          fileName: doc.fileName,
+          fileType: doc.fileType,
+          updatedAt: doc.updatedAt,
+          jobDescription: normalizeJobDescription(doc.jobDescription),
+        },
+      });
     }
 
     const normalizedInsights = normalizeResumeInsights(doc.insights);
@@ -59,7 +84,49 @@ export async function GET() {
         fileName: doc.fileName,
         fileType: doc.fileType,
         updatedAt: doc.updatedAt,
+        jobDescription: normalizeJobDescription(doc.jobDescription),
       },
+    });
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    return NextResponse.json({ error: normalized.message }, { status: normalized.status });
+  }
+}
+
+export async function PATCH(request: Request) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const body = (await request.json().catch(() => ({}))) as {
+      jobDescription?: unknown;
+    };
+    const normalizedJobDescription = normalizeJobDescription(body.jobDescription);
+    const now = new Date();
+    const db = await getMongoDb();
+
+    await db.collection('resumeInsights').updateOne(
+      { userId },
+      {
+        $set: {
+          userId,
+          jobDescription: normalizedJobDescription,
+          updatedAt: now,
+        },
+        $setOnInsert: {
+          createdAt: now,
+        },
+      },
+      { upsert: true },
+    );
+
+    return NextResponse.json({
+      message: 'Job description saved.',
+      jobDescription: normalizedJobDescription,
+      updatedAt: now.toISOString(),
     });
   } catch (error) {
     const normalized = normalizeApiError(error);
@@ -77,6 +144,9 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const resumeFile = formData.get('resume');
+    const jobDescriptionRaw = formData.get('jobDescription');
+    const hasJobDescriptionInRequest = typeof jobDescriptionRaw === 'string';
+    const normalizedJobDescriptionFromRequest = normalizeJobDescription(jobDescriptionRaw);
 
     if (!(resumeFile instanceof File)) {
       return NextResponse.json({ error: 'Resume file is required.' }, { status: 400 });
@@ -103,28 +173,43 @@ export async function POST(request: Request) {
           resumeHash: 1,
           insights: 1,
           updatedAt: 1,
+          jobDescription: 1,
         },
       },
     );
+    const existingJobDescription = normalizeJobDescription(existing?.jobDescription);
+    const jobDescriptionToPersist = hasJobDescriptionInRequest
+      ? normalizedJobDescriptionFromRequest
+      : existingJobDescription;
 
     if (existing?.resumeHash === resumeHash && existing?.insights) {
       const normalizedInsights = normalizeResumeInsights(existing.insights);
+      const shouldUpdateJobDescription = jobDescriptionToPersist !== existingJobDescription;
+      let updatedAt = existing.updatedAt;
 
-      if (JSON.stringify(existing.insights) !== JSON.stringify(normalizedInsights)) {
+      if (
+        JSON.stringify(existing.insights) !== JSON.stringify(normalizedInsights) ||
+        shouldUpdateJobDescription
+      ) {
+        const now = new Date();
         await db.collection('resumeInsights').updateOne(
           { userId },
           {
             $set: {
               insights: normalizedInsights,
-              updatedAt: new Date(),
+              jobDescription: jobDescriptionToPersist,
+              updatedAt: now,
             },
           },
         );
+
+        updatedAt = now;
       }
 
       return NextResponse.json({
         insights: normalizedInsights,
-        updatedAt: existing.updatedAt,
+        updatedAt,
+        jobDescription: jobDescriptionToPersist,
         reused: true,
         message: 'Resume unchanged. Reused existing analysis to save cost.',
       });
@@ -143,6 +228,7 @@ export async function POST(request: Request) {
           fileName: resumeFile.name,
           fileType: detectedType,
           insights,
+          jobDescription: jobDescriptionToPersist,
           updatedAt: now,
           model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         },
@@ -153,7 +239,11 @@ export async function POST(request: Request) {
       { upsert: true },
     );
 
-    return NextResponse.json({ insights, updatedAt: now.toISOString() });
+    return NextResponse.json({
+      insights,
+      updatedAt: now.toISOString(),
+      jobDescription: jobDescriptionToPersist,
+    });
   } catch (error) {
     const normalized = normalizeApiError(error);
     return NextResponse.json({ error: normalized.message }, { status: normalized.status });

@@ -1,4 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
+import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/mongodb';
 import {
@@ -15,6 +16,14 @@ function normalizeDifficulty(value: unknown): InterviewDifficulty {
   }
 
   return 'medium';
+}
+
+function normalizeJobDescription(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function hashJobDescription(jobDescription: string): string {
+  return createHash('sha256').update(jobDescription).digest('hex');
 }
 
 function normalizeApiError(error: unknown) {
@@ -56,6 +65,8 @@ export async function POST(request: Request) {
 
     const db = await getMongoDb();
     const resumeDoc = await db.collection('resumeInsights').findOne({ userId });
+    const normalizedJobDescription = normalizeJobDescription(resumeDoc?.jobDescription);
+    const jobDescriptionHash = hashJobDescription(normalizedJobDescription);
 
     if (!resumeDoc?.insights || !resumeDoc?.resumeHash) {
       return NextResponse.json(
@@ -68,9 +79,14 @@ export async function POST(request: Request) {
 
     const existingQuestionDoc = await db.collection('interviewQuestions').findOne({ userId });
     const existingQuestions = existingQuestionDoc?.questions;
+    const existingJobDescriptionHash =
+      typeof existingQuestionDoc?.jobDescriptionHash === 'string'
+        ? existingQuestionDoc.jobDescriptionHash
+        : hashJobDescription(normalizeJobDescription(existingQuestionDoc?.jobDescription));
 
     if (
       existingQuestionDoc?.resumeHash === resumeDoc.resumeHash &&
+      existingJobDescriptionHash === jobDescriptionHash &&
       ((existingQuestionDoc?.difficulty as InterviewDifficulty | undefined) ?? 'medium') ===
         difficulty &&
       Array.isArray(existingQuestions) &&
@@ -92,6 +108,7 @@ export async function POST(request: Request) {
       resumeDoc.insights as ResumeInsights,
       questionCount,
       difficulty,
+      normalizedJobDescription || undefined,
     );
     const questions = ensureIntroQuestionFirst(generatedQuestions, questionCount);
 
@@ -103,6 +120,7 @@ export async function POST(request: Request) {
         $set: {
           userId,
           resumeHash: resumeDoc.resumeHash,
+          jobDescriptionHash,
           difficulty,
           questions,
           updatedAt: now,

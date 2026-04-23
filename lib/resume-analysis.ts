@@ -204,6 +204,7 @@ export async function generateInterviewQuestionsWithGroq(
   insights: ResumeInsights,
   questionCount = 6,
   difficulty: InterviewDifficulty = 'medium',
+  jobDescription?: string,
 ): Promise<InterviewQuestion[]> {
   const apiKey = process.env.GROQ_API_KEY;
 
@@ -212,6 +213,7 @@ export async function generateInterviewQuestionsWithGroq(
   }
 
   const groq = new Groq({ apiKey });
+  const normalizedJobDescription = typeof jobDescription === 'string' ? jobDescription.trim() : '';
 
   // Request one fewer question since we are adding the intro ourselves.
   const remainingQuestionCount = Math.max(1, questionCount - 1);
@@ -224,11 +226,11 @@ export async function generateInterviewQuestionsWithGroq(
       {
         role: 'system',
         content:
-          'You are an interview coach. Return only valid JSON: {"questions":[{"question":"...","skillFocus":"..."}]}. Questions must be practical interview prompts based on resume strengths and gaps. Start with general/behavioral questions before jumping to technical ones.',
+          'You are an interview coach. Return only valid JSON: {"questions":[{"question":"...","skillFocus":"..."}]}. If a job description is provided, align most questions to that role while grounding them in the candidate resume. If no job description is provided, use only resume strengths and gaps. Start with general/behavioral questions before jumping to technical ones.',
       },
       {
         role: 'user',
-        content: `Create ${remainingQuestionCount} interview questions using this resume insight JSON:\n${JSON.stringify(insights)}\n\nDifficulty level: ${difficulty}.\nRules: Start with general/behavioral questions then move to technical. Include mix of behavioral + technical + project-based questions. Keep each concise.\nDifficulty guidance:\n- easy: beginner-friendly, foundational concepts, direct phrasing, low complexity follow-ups.\n- medium: practical real-world scenarios, moderate depth, some trade-off discussion.\n- hard: senior-level depth, architecture/trade-offs, edge cases, performance and scaling considerations.`,
+        content: `Create ${remainingQuestionCount} interview questions using this resume insight JSON:\n${JSON.stringify(insights)}\n\nJob description context (${normalizedJobDescription ? 'provided' : 'not provided'}):\n${normalizedJobDescription || 'No job description provided. Use resume context only.'}\n\nDifficulty level: ${difficulty}.\nRules: Start with general/behavioral questions then move to technical. Include mix of behavioral + technical + project-based questions. Keep each concise. When a job description is provided, prioritize required responsibilities and skills from it.\nDifficulty guidance:\n- easy: beginner-friendly, foundational concepts, direct phrasing, low complexity follow-ups.\n- medium: practical real-world scenarios, moderate depth, some trade-off discussion.\n- hard: senior-level depth, architecture/trade-offs, edge cases, performance and scaling considerations.`,
       },
     ],
   });
