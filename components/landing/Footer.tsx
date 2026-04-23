@@ -88,7 +88,7 @@ export default function Footer() {
                 rel="noopener noreferrer"
                 className="text-orange-500 transition-colors hover:text-orange-400"
               >
-                Sankalp
+                Team Ctrl+Z
               </a>{" "}
               with <span className="text-red-500">❤</span>
             </p>

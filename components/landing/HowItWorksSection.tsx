@@ -76,7 +76,7 @@ export default function HowItWorksSection() {
         >
           {/* Connecting line */}
           <div
-            className="pointer-events-none absolute top-16 left-[16.67%] right-[16.67%] hidden h-[2px] md:block"
+            className="pointer-events-none absolute top-24 left-[16.67%] right-[16.67%] hidden h-[2px] md:block"
             style={{
               background:
                 "linear-gradient(90deg, transparent 0%, rgba(249,115,22,0.3) 20%, rgba(249,115,22,0.3) 80%, transparent 100%)",
@@ -94,7 +94,7 @@ export default function HowItWorksSection() {
                 <div className="mx-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/10 border border-orange-500/20">
                   <step.icon className="h-6 w-6 sm:h-8 sm:w-8 text-orange-400" />
                 </div>
-                <span className="absolute -top-2 -right-2 flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-500 text-xs font-bold text-white">
+                <span className="absolute -top-2 right-32 flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-500 text-xs font-bold text-white">
                   {step.number}
                 </span>
               </div>

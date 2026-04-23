@@ -214,7 +214,7 @@ export default function DashboardPage() {
                   }}
                   className="rounded-full bg-linear-to-r from-orange-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:shadow-[0_0_24px_rgba(249,115,22,0.4)]"
                 >
-                  Start New Interview ({selectedDifficulty})
+                  Start New Interview
                 </Link>
                 <Link
                   href="/"
@@ -301,7 +301,7 @@ export default function DashboardPage() {
               <h2 className="text-base font-semibold text-white">Next Recommended Session</h2>
             </div>
             <p className="text-sm text-zinc-300">
-              Go for <span className="font-semibold capitalize text-white">{recommendedDifficulty}</span> now.
+              Go for <span className="font-semibold capitalize text-white">{recommendedDifficulty} difficulty</span> now.
             </p>
             <p className="mt-1 text-sm text-zinc-500">
               {recommendedDifficulty === 'hard'
