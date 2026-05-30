@@ -26,6 +26,7 @@ type EvaluatedAnswer = {
   question: string;
   answer: string;
   evaluation: AnswerEvaluation;
+  behaviorMetrics?: BehaviorMetrics | null;
 };
 
 type InterviewPhase =
@@ -114,7 +115,6 @@ export default function InterviewPage() {
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<EvaluatedAnswer[]>([]);
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
   const [evaluationError, setEvaluationError] = useState('');
-  const [behaviorMetrics, setBehaviorMetrics] = useState<BehaviorMetrics | null>(null);
   const [behaviorWarning, setBehaviorWarning] = useState('');
   const [isQuestionVoiceOn, setIsQuestionVoiceOn] = useState(true);
   const [selectedDifficulty, setSelectedDifficulty] = useState<InterviewDifficulty>('medium');
@@ -419,7 +419,6 @@ export default function InterviewPage() {
       setRecordedAudioMimeType('audio/webm');
       setAnswerText('');
       setIsTranscribing(false);
-      setBehaviorMetrics(null);
 
       const stream = streamRef.current;
       if (!stream) {
@@ -479,7 +478,6 @@ export default function InterviewPage() {
         setIsRecording(false);
 
         const capturedBehaviorMetrics = behaviorAnalyzer.stop();
-        setBehaviorMetrics(capturedBehaviorMetrics);
 
         const blobType = recorder.mimeType || supportedMimeType || 'audio/webm';
         const audioBlob = new Blob(recordedChunksRef.current, { type: blobType });
@@ -568,6 +566,7 @@ export default function InterviewPage() {
               question: currentQuestion.question,
               answer: answerToScore,
               evaluation,
+              behaviorMetrics: capturedBehaviorMetrics,
             },
             ...prev,
           ]);
@@ -794,8 +793,8 @@ export default function InterviewPage() {
             <div className="mt-4 rounded-xl border border-zinc-800 bg-black/20 p-4">
               <p className="mb-3 text-sm font-medium text-zinc-200">Automatic answer pipeline</p>
               <p className="text-xs text-zinc-500">
-                Each question gets a dynamic recording window (about {Math.round(currentAnswerWindowMs / 1000)} seconds for the current prompt), then
-                Whisper transcribes it and the evaluator scores it automatically.
+                Each question gets a dynamic recording window (about {Math.round(currentAnswerWindowMs / 1000)} seconds for the current question), then
+                our system transcribes it and the evaluator scores it automatically.
               </p>
               <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 text-sm text-zinc-200">
                 {answerText ? answerText : 'Transcript will appear here automatically.'}
@@ -820,16 +819,6 @@ export default function InterviewPage() {
                 </audio>
               ) : null}
 
-              {behaviorMetrics ? (
-                <div className="mt-3 rounded-lg border border-zinc-800 bg-black/30 p-3 text-xs text-zinc-300">
-                  <p className="text-[11px] uppercase tracking-wider text-zinc-500">Behavior snapshot</p>
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    <span>Confidence {behaviorMetrics.confidenceScore}/100</span>
-                    <span>Anxiety {behaviorMetrics.anxietyScore}/100</span>
-                    <span>Face {Math.round(behaviorMetrics.facePresenceRatio * 100)}%</span>
-                  </div>
-                </div>
-              ) : null}
             </div>
 
             {behaviorWarning ? (
@@ -914,6 +903,16 @@ export default function InterviewPage() {
                     <p className="text-lg font-semibold text-orange-300">{entry.evaluation.score}/100</p>
                     <p className="mt-2 text-xs text-zinc-500">Feedback</p>
                     <p className="text-sm text-zinc-300">{entry.evaluation.feedbackSummary}</p>
+                    {entry.behaviorMetrics ? (
+                      <div className="mt-3 rounded-lg border border-zinc-800 bg-black/30 p-2 text-xs text-zinc-300">
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-500">Behavior</p>
+                        <div className="mt-1 flex flex-wrap gap-3">
+                          <span>Confidence {entry.behaviorMetrics.confidenceScore}/100</span>
+                          <span>Anxiety {entry.behaviorMetrics.anxietyScore}/100</span>
+                          <span>Face {Math.round(entry.behaviorMetrics.facePresenceRatio * 100)}%</span>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
