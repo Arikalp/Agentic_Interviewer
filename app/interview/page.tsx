@@ -4,6 +4,8 @@ import { useUser } from '@clerk/nextjs';
 import { LoaderCircle, Mic, MicOff, Video, VideoOff, Volume2, VolumeX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createBehaviorAnalyzer } from '@/lib/behavior-analysis';
+import type { BehaviorMetrics } from '@/lib/behavior-metrics';
 
 type InterviewQuestion = {
   question: string;
@@ -112,8 +114,20 @@ export default function InterviewPage() {
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<EvaluatedAnswer[]>([]);
   const [isEvaluatingAnswer, setIsEvaluatingAnswer] = useState(false);
   const [evaluationError, setEvaluationError] = useState('');
+  const [behaviorMetrics, setBehaviorMetrics] = useState<BehaviorMetrics | null>(null);
+  const [behaviorWarning, setBehaviorWarning] = useState('');
   const [isQuestionVoiceOn, setIsQuestionVoiceOn] = useState(true);
   const [selectedDifficulty, setSelectedDifficulty] = useState<InterviewDifficulty>('medium');
+
+  const behaviorAnalyzer = useMemo(
+    () =>
+      createBehaviorAnalyzer({
+        onError: (error) => {
+          setBehaviorWarning(error.message || 'Behavior analysis failed.');
+        },
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -328,15 +342,28 @@ export default function InterviewPage() {
   }, [isLoaded, isSignedIn, interviewStarted, mediaReady, isLoadingQuestions, questions.length, questionError]);
 
   useEffect(() => {
+    if (!mediaReady || !interviewStarted) {
+      return;
+    }
+
+    void behaviorAnalyzer.prepare().catch((error) => {
+      const message =
+        error instanceof Error ? error.message : 'Behavior analysis is unavailable.';
+      setBehaviorWarning(message);
+    });
+  }, [behaviorAnalyzer, mediaReady, interviewStarted]);
+
+  useEffect(() => {
     return () => {
       clearPendingTimers();
       stopQuestionSpeech();
+      behaviorAnalyzer.stop();
 
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
     };
-  }, []);
+  }, [behaviorAnalyzer]);
 
   const currentQuestion = useMemo(
     () => questions[currentQuestionIndex] || null,
@@ -392,6 +419,7 @@ export default function InterviewPage() {
       setRecordedAudioMimeType('audio/webm');
       setAnswerText('');
       setIsTranscribing(false);
+      setBehaviorMetrics(null);
 
       const stream = streamRef.current;
       if (!stream) {
@@ -440,140 +468,159 @@ export default function InterviewPage() {
         return;
       }
 
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        recordedChunksRef.current.push(event.data);
-      }
-    };
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
 
-    recorder.onstop = async () => {
-      clearPendingTimers();
-      setIsRecording(false);
+      recorder.onstop = async () => {
+        clearPendingTimers();
+        setIsRecording(false);
 
-      const blobType = recorder.mimeType || supportedMimeType || 'audio/webm';
-      const audioBlob = new Blob(recordedChunksRef.current, { type: blobType });
+        const capturedBehaviorMetrics = behaviorAnalyzer.stop();
+        setBehaviorMetrics(capturedBehaviorMetrics);
 
-      if (audioBlob.size <= 0) {
-        setEvaluationError('No audio was captured for this question.');
+        const blobType = recorder.mimeType || supportedMimeType || 'audio/webm';
+        const audioBlob = new Blob(recordedChunksRef.current, { type: blobType });
+
+        if (audioBlob.size <= 0) {
+          setEvaluationError('No audio was captured for this question.');
+          setPhase('review');
+          reviewTimeoutRef.current = setTimeout(() => {
+            setCurrentQuestionIndex((prev) => prev + 1);
+            setPhase('ready');
+          }, REVIEW_DELAY_MS);
+          return;
+        }
+
+        const nextUrl = URL.createObjectURL(audioBlob);
+        setRecordedAudioUrl(nextUrl);
+        setRecordedAudioMimeType(blobType);
+        setIsTranscribing(true);
+        setPhase('transcribing');
+
+        const formData = new FormData();
+        const fileExtension = blobType.includes('mp4')
+          ? 'mp4'
+          : blobType.includes('ogg')
+            ? 'ogg'
+            : 'webm';
+        formData.append('audio', audioBlob, `answer.${fileExtension}`);
+
+        let transcript = '';
+
+        try {
+          const response = await fetch('/api/interview/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const data = (await response.json().catch(() => ({}))) as {
+            text?: string;
+            error?: string;
+          };
+
+          if (!response.ok) {
+            throw new Error(data?.error || 'Failed to transcribe audio.');
+          }
+
+          transcript = data.text?.trim() || '';
+          setAnswerText(transcript);
+        } catch (error) {
+          transcript = 'Transcription unavailable.';
+          setAnswerText(transcript);
+          setEvaluationError(
+            error instanceof Error ? error.message : 'Failed to transcribe audio.',
+          );
+        } finally {
+          setIsTranscribing(false);
+        }
+
+        setPhase('scoring');
+        setIsEvaluatingAnswer(true);
+
+        const answerToScore = transcript.trim() || 'Transcription unavailable.';
+
+        try {
+          const response = await fetch('/api/interview/evaluate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              currentQuestion: currentQuestion.question,
+              userAnswer: answerToScore,
+              behaviorMetrics: capturedBehaviorMetrics,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data?.error || 'Failed to evaluate answer.');
+          }
+
+          const evaluation = data.evaluation as AnswerEvaluation;
+
+          setEvaluatedAnswers((prev) => [
+            {
+              question: currentQuestion.question,
+              answer: answerToScore,
+              evaluation,
+            },
+            ...prev,
+          ]);
+
+          if (evaluation.followUpQuestion?.trim()) {
+            setQuestions((prev) => {
+              const exists = prev.some(
+                (q) => q.question.trim().toLowerCase() === evaluation.followUpQuestion.trim().toLowerCase(),
+              );
+
+              if (exists) {
+                return prev;
+              }
+
+              const next = [...prev];
+              next.splice(currentQuestionIndex + 1, 0, {
+                question: evaluation.followUpQuestion,
+                skillFocus: 'Follow-up depth',
+              });
+              return next;
+            });
+          }
+        } catch (error) {
+          setEvaluationError(
+            error instanceof Error ? error.message : 'Unable to evaluate answer right now.',
+          );
+        } finally {
+          setIsEvaluatingAnswer(false);
+        }
+
         setPhase('review');
         reviewTimeoutRef.current = setTimeout(() => {
           setCurrentQuestionIndex((prev) => prev + 1);
           setPhase('ready');
         }, REVIEW_DELAY_MS);
-        return;
-      }
-
-      const nextUrl = URL.createObjectURL(audioBlob);
-      setRecordedAudioUrl(nextUrl);
-      setRecordedAudioMimeType(blobType);
-      setIsTranscribing(true);
-      setPhase('transcribing');
-
-      const formData = new FormData();
-      const fileExtension = blobType.includes('mp4')
-        ? 'mp4'
-        : blobType.includes('ogg')
-          ? 'ogg'
-          : 'webm';
-      formData.append('audio', audioBlob, `answer.${fileExtension}`);
-
-      let transcript = '';
-
-      try {
-        const response = await fetch('/api/interview/transcribe', {
-          method: 'POST',
-          body: formData,
-        });
-
-        const data = (await response.json().catch(() => ({}))) as {
-          text?: string;
-          error?: string;
-        };
-
-        if (!response.ok) {
-          throw new Error(data?.error || 'Failed to transcribe audio.');
-        }
-
-        transcript = data.text?.trim() || '';
-        setAnswerText(transcript);
-      } catch (error) {
-        transcript = 'Transcription unavailable.';
-        setAnswerText(transcript);
-        setEvaluationError(
-          error instanceof Error ? error.message : 'Failed to transcribe audio.',
-        );
-      } finally {
-        setIsTranscribing(false);
-      }
-
-      setPhase('scoring');
-      setIsEvaluatingAnswer(true);
-
-      const answerToScore = transcript.trim() || 'Transcription unavailable.';
-
-      try {
-        const response = await fetch('/api/interview/evaluate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            currentQuestion: currentQuestion.question,
-            userAnswer: answerToScore,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data?.error || 'Failed to evaluate answer.');
-        }
-
-        const evaluation = data.evaluation as AnswerEvaluation;
-
-        setEvaluatedAnswers((prev) => [
-          {
-            question: currentQuestion.question,
-            answer: answerToScore,
-            evaluation,
-          },
-          ...prev,
-        ]);
-
-        if (evaluation.followUpQuestion?.trim()) {
-          setQuestions((prev) => {
-            const exists = prev.some(
-              (q) => q.question.trim().toLowerCase() === evaluation.followUpQuestion.trim().toLowerCase(),
-            );
-
-            if (exists) {
-              return prev;
-            }
-
-            const next = [...prev];
-            next.splice(currentQuestionIndex + 1, 0, {
-              question: evaluation.followUpQuestion,
-              skillFocus: 'Follow-up depth',
-            });
-            return next;
-          });
-        }
-      } catch (error) {
-        setEvaluationError(
-          error instanceof Error ? error.message : 'Unable to evaluate answer right now.',
-        );
-      } finally {
-        setIsEvaluatingAnswer(false);
-      }
-
-      setPhase('review');
-      reviewTimeoutRef.current = setTimeout(() => {
-        setCurrentQuestionIndex((prev) => prev + 1);
-        setPhase('ready');
-      }, REVIEW_DELAY_MS);
-    };
+      };
 
       mediaRecorderRef.current = recorder;
+
+      if (videoRef.current) {
+        void behaviorAnalyzer
+          .start(videoRef.current)
+          .then(() => {
+            setBehaviorWarning('');
+          })
+          .catch((error) => {
+            const message =
+              error instanceof Error
+                ? error.message
+                : 'Behavior analysis is unavailable for this answer.';
+            setBehaviorWarning(message);
+          });
+      }
 
       try {
         recorder.start();
@@ -600,7 +647,7 @@ export default function InterviewPage() {
       cancelled = true;
       stopQuestionSpeech();
     };
-  }, [phase, currentQuestion, currentQuestionIndex, isQuestionVoiceOn, currentAnswerWindowMs]);
+  }, [behaviorAnalyzer, phase, currentQuestion, currentQuestionIndex, isQuestionVoiceOn, currentAnswerWindowMs]);
 
   useEffect(() => {
     if (isQuestionVoiceOn) {
@@ -772,7 +819,24 @@ export default function InterviewPage() {
                   <source src={recordedAudioUrl} type={recordedAudioMimeType} />
                 </audio>
               ) : null}
+
+              {behaviorMetrics ? (
+                <div className="mt-3 rounded-lg border border-zinc-800 bg-black/30 p-3 text-xs text-zinc-300">
+                  <p className="text-[11px] uppercase tracking-wider text-zinc-500">Behavior snapshot</p>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    <span>Confidence {behaviorMetrics.confidenceScore}/100</span>
+                    <span>Anxiety {behaviorMetrics.anxietyScore}/100</span>
+                    <span>Face {Math.round(behaviorMetrics.facePresenceRatio * 100)}%</span>
+                  </div>
+                </div>
+              ) : null}
             </div>
+
+            {behaviorWarning ? (
+              <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+                Behavior analysis unavailable: {behaviorWarning}
+              </p>
+            ) : null}
 
             {permissionError ? (
               <p className="mt-3 rounded-lg border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-300">

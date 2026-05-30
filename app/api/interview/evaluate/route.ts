@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/mongodb';
+import type { BehaviorMetrics } from '@/lib/behavior-metrics';
 import {
   type ResumeInsights,
   evaluateAnswerWithGroq,
@@ -9,6 +10,7 @@ import {
 type EvaluateBody = {
   currentQuestion?: string;
   userAnswer?: string;
+  behaviorMetrics?: BehaviorMetrics | null;
 };
 
 function normalizeApiError(error: unknown) {
@@ -41,6 +43,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as EvaluateBody;
     const currentQuestion = body.currentQuestion?.trim();
     const userAnswer = body.userAnswer?.trim();
+    const behaviorMetrics = body.behaviorMetrics ?? null;
 
     if (!currentQuestion || !userAnswer) {
       return NextResponse.json(
@@ -73,6 +76,7 @@ export async function POST(request: Request) {
       currentQuestion,
       userAnswer,
       evaluation,
+      behaviorMetrics,
       createdAt: now,
     });
 
