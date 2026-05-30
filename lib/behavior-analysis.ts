@@ -187,11 +187,14 @@ class BehaviorAccumulator {
       (emotionAverages.contempt ?? 0);
 
     const movementScore = 1 - clamp(avgHeadMovement / 0.15, 0, 1);
-    const confidenceBlend =
-      facePresenceRatio * 0.4 +
+    const baseConfidence =
+      facePresenceRatio * 0.35 +
       avgCenteringScore * 0.2 +
       movementScore * 0.2 +
-      (neutral + happiness) * 0.2;
+      (neutral + happiness) * 0.25;
+    const confidencePenalty = (1 - facePresenceRatio) * 0.25 + negative * 0.4;
+    const adjustedConfidence = clamp(baseConfidence - confidencePenalty, 0, 1);
+    const confidenceBlend = Math.pow(adjustedConfidence, 1.6);
     const anxietyBlend = negative * 0.7 + (1 - avgCenteringScore) * 0.3;
 
     return {

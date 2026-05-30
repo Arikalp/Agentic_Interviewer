@@ -90,6 +90,8 @@ export default function InterviewPage() {
   const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reviewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingStartedAtRef = useRef<number | null>(null);
 
   const [permissionError, setPermissionError] = useState('');
   const [isCameraOn, setIsCameraOn] = useState(false);
@@ -118,6 +120,7 @@ export default function InterviewPage() {
   const [behaviorWarning, setBehaviorWarning] = useState('');
   const [isQuestionVoiceOn, setIsQuestionVoiceOn] = useState(true);
   const [selectedDifficulty, setSelectedDifficulty] = useState<InterviewDifficulty>('medium');
+  const [recordingRemainingMs, setRecordingRemainingMs] = useState<number | null>(null);
 
   const behaviorAnalyzer = useMemo(
     () =>
@@ -183,13 +186,59 @@ export default function InterviewPage() {
     }
   };
 
-  const stopQuestionSpeech = () => {
+  const stopRecordingTimer = () => {
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+
+    recordingStartedAtRef.current = null;
+    setRecordingRemainingMs(null);
+  };
+
+  const startRecordingTimer = (durationMs: number) => {
+    stopRecordingTimer();
+    recordingStartedAtRef.current = Date.now();
+    setRecordingRemainingMs(durationMs);
+
+    recordingIntervalRef.current = setInterval(() => {
+      if (recordingStartedAtRef.current === null) {
+        return;
+      }
+
+      const elapsed = Date.now() - recordingStartedAtRef.current;
+      const remaining = Math.max(0, durationMs - elapsed);
+      setRecordingRemainingMs(remaining);
+
+      if (remaining <= 0) {
+        stopRecordingTimer();
+      }
+    }, 250);
+  };
+
+  const stopQuestionSpeech = async (): Promise<void> => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
       return;
     }
 
     speechUtteranceRef.current = null;
     window.speechSynthesis.cancel();
+    window.speechSynthesis.pause();
+    window.speechSynthesis.resume();
+
+    await new Promise<void>((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        if (!window.speechSynthesis.speaking || Date.now() - start > 600) {
+          resolve();
+          return;
+        }
+
+        setTimeout(check, 25);
+      };
+
+      check();
+    });
   };
 
   const speakQuestion = async (text: string): Promise<void> => {
@@ -200,23 +249,26 @@ export default function InterviewPage() {
     await waitForSpeechVoices();
 
     await new Promise<void>((resolve) => {
-      stopQuestionSpeech();
+      void stopQuestionSpeech().then(() => {
+        setTimeout(() => {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = QUESTION_SPEECH_RATE;
+          utterance.pitch = 1;
+          utterance.volume = 1;
+          utterance.onend = () => {
+            speechUtteranceRef.current = null;
+            resolve();
+          };
+          utterance.onerror = () => {
+            speechUtteranceRef.current = null;
+            resolve();
+          };
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = QUESTION_SPEECH_RATE;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-      utterance.onend = () => {
-        speechUtteranceRef.current = null;
-        resolve();
-      };
-      utterance.onerror = () => {
-        speechUtteranceRef.current = null;
-        resolve();
-      };
-
-      speechUtteranceRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
+          speechUtteranceRef.current = utterance;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+        }, 120);
+      });
     });
   };
 
@@ -356,7 +408,8 @@ export default function InterviewPage() {
   useEffect(() => {
     return () => {
       clearPendingTimers();
-      stopQuestionSpeech();
+      void stopQuestionSpeech();
+      stopRecordingTimer();
       behaviorAnalyzer.stop();
 
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -475,6 +528,7 @@ export default function InterviewPage() {
 
       recorder.onstop = async () => {
         clearPendingTimers();
+        stopRecordingTimer();
         setIsRecording(false);
 
         const capturedBehaviorMetrics = behaviorAnalyzer.stop();
@@ -625,6 +679,7 @@ export default function InterviewPage() {
         recorder.start();
         setIsRecording(true);
         setPhase('recording');
+        startRecordingTimer(currentAnswerWindowMs);
       } catch {
         setEvaluationError(
           'Failed to start recording. Your browser may not support this recording format.',
@@ -653,7 +708,7 @@ export default function InterviewPage() {
       return;
     }
 
-    stopQuestionSpeech();
+    void stopQuestionSpeech();
   }, [isQuestionVoiceOn]);
 
   if (!isLoaded) {
@@ -773,21 +828,26 @@ export default function InterviewPage() {
               />
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-              <span className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-3 py-1.5">
+            <div className="mt-4 grid grid-cols-4 gap-3 text-xs text-zinc-400">
+              <span className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-zinc-700 px-4 py-2">
                 {isCameraOn ? <Video className="h-3.5 w-3.5 text-orange-300" /> : <VideoOff className="h-3.5 w-3.5" />}
                 Camera {isCameraOn ? 'On' : 'Off'}
               </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-3 py-1.5">
+              <span className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-zinc-700 px-4 py-2">
                 {isMicOn ? <Mic className="h-3.5 w-3.5 text-orange-300" /> : <MicOff className="h-3.5 w-3.5" />}
                 Mic {isMicOn ? 'On' : 'Off'}
               </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-zinc-700 px-3 py-1.5 text-orange-300">
+              <span className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-zinc-700 px-4 py-2 text-orange-300">
                 {phase === 'recording' || phase === 'transcribing' || phase === 'scoring' ? (
                   <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                 ) : null}
                 {phaseLabel}
               </span>
+              {recordingRemainingMs !== null ? (
+                <span className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-orange-400/30 bg-orange-500/10 px-4 py-2 text-xs text-orange-200">
+                  Time left {Math.max(1, Math.ceil(recordingRemainingMs / 1000))}s
+                </span>
+              ) : null}
             </div>
 
             <div className="mt-4 rounded-xl border border-zinc-800 bg-black/20 p-4">
