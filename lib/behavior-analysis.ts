@@ -468,6 +468,10 @@ export function createBehaviorAnalyzer(configOverrides: Partial<BehaviorAnalyzer
       const sWidth = Math.max(1, Math.floor((bbox.maxX - bbox.minX) * videoWidth));
       const sHeight = Math.max(1, Math.floor((bbox.maxY - bbox.minY) * videoHeight));
 
+      if (!canvas || !ctx) {
+        throw new Error('Frame canvas is not available for emotion inference.');
+      }
+
       const { width, height } = assets.inputSpec;
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
@@ -484,7 +488,7 @@ export function createBehaviorAnalyzer(configOverrides: Partial<BehaviorAnalyzer
 
       const outputTensor = output[assets.inputSpec.outputName];
       const rawScores = outputTensor?.data as Float32Array | undefined;
-      const emotionProbs = rawScores ? softmax(rawScores) : null;
+      const emotionProbs = rawScores ? Array.from(softmax(rawScores)) : null;
 
       accumulator?.addFrame({ center, emotionProbs });
     } catch (error) {

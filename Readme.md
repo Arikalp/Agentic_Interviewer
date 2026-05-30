@@ -7,9 +7,10 @@ Intervo is an AI-powered mock interview platform built with Next.js. It helps us
 ## What It Does
 
 - Resume-based interview question generation
-- Real-time AI interview experience with video and voice flows
+- Real-time AI interview experience with video, voice, and dynamic recording timer
 - Interview transcription, evaluation, and scoring endpoints
 - Personalized performance insights and improvement guidance
+- On-device facial expression analysis with confidence/anxiety signals per answer
 - Authentication-driven dashboard, profile, signup, and login flows
 
 ## Tech Stack
@@ -23,6 +24,8 @@ Intervo is an AI-powered mock interview platform built with Next.js. It helps us
 - Groq-powered AI workflows
 - Framer Motion for UI animations
 - Vercel Analytics for usage tracking
+- MediaPipe Tasks Vision (Face Landmarker)
+- ONNX Runtime Web (emotion inference)
 
 ## Getting Started
 
@@ -34,6 +37,24 @@ npm run dev
 ```
 
 Open [http://localhost:8000](http://localhost:8000) in your browser.
+
+## Behavior Analysis Assets
+
+Behavior analysis runs fully on-device. You need to provide the model assets in public/.
+
+Required files:
+
+- public/models/face_landmarker.task
+- public/models/ferplus.onnx
+- public/wasm/onnxruntime/*
+- public/wasm/mediapipe/*
+
+The WASM assets are copied from node_modules:
+
+- node_modules/onnxruntime-web/dist/*.wasm, *.mjs, *.js -> public/wasm/onnxruntime/
+- node_modules/@mediapipe/tasks-vision/wasm/* -> public/wasm/mediapipe/
+
+If you swap the emotion model, update the expected input shape and label order in lib/behavior-analysis.ts.
 
 ## Available Scripts
 
