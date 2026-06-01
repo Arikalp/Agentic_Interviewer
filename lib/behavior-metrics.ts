@@ -6,5 +6,7 @@ export type BehaviorMetrics = {
   avgHeadMovement: number;
   emotionAverages: Record<string, number>;
   confidenceScore: number;
+  confidenceLabel?: string;
+  confidenceSummary?: string;
   anxietyScore: number;
 };

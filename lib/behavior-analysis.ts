@@ -197,21 +197,72 @@ class BehaviorAccumulator {
     const confidenceBlend = Math.pow(adjustedConfidence, 1.6);
     const anxietyBlend = negative * 0.7 + (1 - avgCenteringScore) * 0.3;
 
-    return {
-      frameCount: this.frameCount,
-      faceFrameCount: this.faceFrameCount,
-      facePresenceRatio,
-      avgCenteringScore,
-      avgHeadMovement,
-      emotionAverages,
-      confidenceScore: Math.round(clamp(confidenceBlend, 0, 1) * 100),
-      anxietyScore: Math.round(clamp(anxietyBlend, 0, 1) * 100),
-    };
+      const numericConfidence = Math.round(clamp(confidenceBlend, 0, 1) * 100);
+      const numericAnxiety = Math.round(clamp(anxietyBlend, 0, 1) * 100);
+
+      const { label: confidenceLabel, summary: confidenceSummary } = describeConfidence(
+        numericConfidence,
+        facePresenceRatio,
+        numericAnxiety,
+        avgCenteringScore,
+        emotionAverages,
+      );
+
+      return {
+        frameCount: this.frameCount,
+        faceFrameCount: this.faceFrameCount,
+        facePresenceRatio,
+        avgCenteringScore,
+        avgHeadMovement,
+        emotionAverages,
+        confidenceScore: numericConfidence,
+        confidenceLabel,
+        confidenceSummary,
+        anxietyScore: numericAnxiety,
+      };
   }
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function describeConfidence(
+  score: number,
+  facePresenceRatio: number,
+  anxietyScore: number,
+  avgCenteringScore: number,
+  emotionAverages: Record<string, number>,
+) {
+  let label = 'Moderate';
+  if (score >= 85) label = 'Very confident';
+  else if (score >= 70) label = 'Confident';
+  else if (score >= 50) label = 'Somewhat confident';
+  else if (score >= 30) label = 'Low confidence';
+  else label = 'Very low confidence';
+
+  // Build a short descriptive sentence using a few signals.
+  const reasons: string[] = [];
+  if (facePresenceRatio < 0.6) reasons.push('low face visibility');
+  if (avgCenteringScore < 0.6) reasons.push('off-center framing');
+  if (anxietyScore > 65) reasons.push('signs of anxiety');
+
+  // Look for dominant negative emotion
+  const negativeEmotions = ['anger', 'fear', 'sadness', 'disgust', 'contempt'];
+  let dominantNegative = '';
+  for (const e of negativeEmotions) {
+    if ((emotionAverages[e] ?? 0) > 0.4) {
+      dominantNegative = e;
+      break;
+    }
+  }
+  if (dominantNegative) reasons.push(`noticeable ${dominantNegative}`);
+
+  const reasonText = reasons.length > 0 ? ` — ${reasons.join(', ')}` : '';
+
+  const summary = `${label}${reasonText}.`;
+
+  return { label, summary };
 }
 
 function softmax(input: Float32Array) {

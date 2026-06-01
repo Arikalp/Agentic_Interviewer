@@ -966,10 +966,18 @@ export default function InterviewPage() {
                     {entry.behaviorMetrics ? (
                       <div className="mt-3 rounded-lg border border-zinc-800 bg-black/30 p-2 text-xs text-zinc-300">
                         <p className="text-[10px] uppercase tracking-wider text-zinc-500">Behavior</p>
-                        <div className="mt-1 flex flex-wrap gap-3">
-                          <span>Confidence {entry.behaviorMetrics.confidenceScore}/100</span>
-                          <span>Anxiety {entry.behaviorMetrics.anxietyScore}/100</span>
-                          <span>Face {Math.round(entry.behaviorMetrics.facePresenceRatio * 100)}%</span>
+                        <div className="mt-1">
+                          <div className="flex flex-wrap gap-3 items-baseline">
+                            <span>Confidence {entry.behaviorMetrics.confidenceScore}/100</span>
+                            {entry.behaviorMetrics.confidenceLabel ? (
+                              <span className="font-medium">— {entry.behaviorMetrics.confidenceLabel}</span>
+                            ) : null}
+                            <span>Anxiety {entry.behaviorMetrics.anxietyScore}/100</span>
+                            <span>Face {Math.round(entry.behaviorMetrics.facePresenceRatio * 100)}%</span>
+                          </div>
+                          {entry.behaviorMetrics.confidenceSummary ? (
+                            <p className="mt-1 text-[11px] text-zinc-400">{entry.behaviorMetrics.confidenceSummary}</p>
+                          ) : null}
                         </div>
                       </div>
                     ) : null}
