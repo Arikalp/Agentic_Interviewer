@@ -1,5 +1,5 @@
 const CACHE_NAME = 'intervo-pwa-v1';
-const APP_SHELL = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-maskable.svg'];
+const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.ico'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
