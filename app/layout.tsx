@@ -18,6 +18,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: 'Intervo - Master Your Interview Skills',
   description: 'Practice mock interviews with AI-powered feedback to ace your job interviews',
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',

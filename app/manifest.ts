@@ -5,6 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Intervo',
     short_name: 'Intervo',
     description: 'AI-powered mock interviews with transcription, scoring, and behavior insights.',
+    id: '/',
     start_url: '/',
     scope: '/',
     display: 'standalone',
@@ -13,10 +14,16 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'portrait-primary',
     icons: [
       {
-        src: '/favicon.ico',
-        sizes: 'any',
-        type: 'image/x-icon',
+        src: '/pwa-icon.svg',
+        sizes: '512x512',
+        type: 'image/svg+xml',
         purpose: 'any',
+      },
+      {
+        src: '/pwa-icon.svg',
+        sizes: '512x512',
+        type: 'image/svg+xml',
+        purpose: 'maskable',
       },
     ],
   };
