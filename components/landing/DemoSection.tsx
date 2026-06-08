@@ -3,6 +3,10 @@
 import { motion } from "framer-motion";
 import { Mic, Clock, Video, Send, SkipForward } from "lucide-react";
 
+// Demo section: illustrates a representative interview flow with a
+// mock chat/question area, hint chips, an input box, and a video
+// preview. Most interactive elements here are placeholders; the real
+// interview page wires them to media streams and model APIs.
 export default function DemoSection() {
   return (
     <section id="demo" className="relative py-16 sm:py-20 md:py-24 overflow-hidden w-full">
@@ -77,7 +81,7 @@ export default function DemoSection() {
               </div>
             </div>
 
-            {/* Interview content */}
+            {/* Interview content (static demo) */}
             <div className="p-3 sm:p-4 md:p-6">
               <div className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-1 lg:grid-cols-5">
                 {/* Chat / Question area */}
@@ -109,7 +113,7 @@ export default function DemoSection() {
                     </p>
                   </motion.div>
 
-                  {/* Hints */}
+                  {/* Hints (suggested keywords shown as chips) */}
                   <motion.div
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
@@ -131,7 +135,9 @@ export default function DemoSection() {
                     ))}
                   </motion.div>
 
-                  {/* Input */}
+                    {/* Input (readOnly in demo) — on the interview page this
+                      would be connected to speech recognition and send
+                      actions to the evaluation pipeline. */}
                   <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-white/[0.03] p-1.5 sm:p-2 border border-white/5">
                     <input
                       type="text"

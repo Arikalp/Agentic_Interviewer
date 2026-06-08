@@ -54,6 +54,10 @@ export async function GET() {
 
     let currentSession: SessionAccumulator | null = null;
 
+    // Iterate over recent evaluations and bucket them into logical
+    // sessions. The heuristic groups evaluations that occur within
+    // 30 seconds of each other — this approximates a single interview
+    // session where questions were answered sequentially.
     for (const evalRecord of evaluations as any[]) {
       const evalDate = new Date(evalRecord.createdAt);
       const evalTimestamp = evalDate.getTime();
@@ -105,7 +109,8 @@ export async function GET() {
       sessions.push(currentSession);
     }
 
-    // Convert Sets to Arrays and format response
+    // Convert Sets to Arrays and format response. Limit strengths and
+    // improvementAreas for brevity in the UI.
     const formattedSessions = sessions.map((session) => ({
       id: session.id,
       date: session.date,

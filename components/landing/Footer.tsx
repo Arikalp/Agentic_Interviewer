@@ -4,6 +4,8 @@ import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 
+// Footer with navigation and attribution. Links shown in the footer
+// depend on whether the user is signed in (app links) or not.
 export default function Footer() {
   const { isSignedIn } = useUser();
   return (
@@ -50,7 +52,7 @@ export default function Footer() {
               </a>
             </div>
 
-            {/* App Links */}
+            {/* App Links — only visible when signed in */}
             {isSignedIn && (
               <div className="flex gap-4 sm:gap-6 md:gap-8 text-xs sm:text-sm">
                 <Link

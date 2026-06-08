@@ -5,6 +5,9 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+// Call-to-action section shown on the landing page. The CTA target
+// depends on the user's authentication state — direct signed-in users
+// to the dashboard, otherwise send them to the login flow.
 export default function CTASection() {
   const { isLoaded, isSignedIn } = useUser();
   const ctaHref = isSignedIn ? "/dashboard" : "/auth/login";

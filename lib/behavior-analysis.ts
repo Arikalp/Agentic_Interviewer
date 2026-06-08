@@ -1,5 +1,9 @@
 import type { BehaviorMetrics } from '@/lib/behavior-metrics';
 
+// Configuration shape expected by the behavior analyzer factory.
+// Consumers can override model paths, runtime modes, emotion labels and
+// performance-related options (fps, wasm base URLs). `onError` allows
+// callers to be notified when the analyzer encounters a runtime problem.
 type BehaviorAnalyzerConfig = {
   emotionModelPath: string;
   faceModelPath: string;
@@ -16,6 +20,7 @@ type BehaviorAnalyzerConfig = {
   onError?: (error: Error) => void;
 };
 
+// Describes the ONNX model input/output names and expected dimensions.
 type InputSpec = {
   inputName: string;
   outputName: string;
@@ -24,6 +29,8 @@ type InputSpec = {
   height: number;
 };
 
+// Container for loaded vision assets: mediapipe face landmarker,
+// ONNX inference session and the resolved input spec for the model.
 type VisionAssets = {
   faceLandmarker: any;
   emotionSession: any;
@@ -31,12 +38,14 @@ type VisionAssets = {
   inputSpec: InputSpec;
 };
 
+// Normalized center point expressed in [0,1] coordinates relative to frame.
 type CenterPoint = {
   x: number;
   y: number;
 };
 
 // Keep label order in sync with the emotion model output indices.
+// These labels correspond to the indices produced by the emotion model.
 const DEFAULT_EMOTION_LABELS = [
   'neutral',
   'happiness',
@@ -48,6 +57,7 @@ const DEFAULT_EMOTION_LABELS = [
   'contempt',
 ];
 
+// Reasonable defaults for running the analyzer in the browser.
 const DEFAULT_CONFIG: BehaviorAnalyzerConfig = {
   emotionModelPath: '/models/ferplus.onnx',
   faceModelPath: '/models/face_landmarker.task',
@@ -63,6 +73,8 @@ const DEFAULT_CONFIG: BehaviorAnalyzerConfig = {
   },
 };
 
+// Patterns used to filter noisy MediaPipe logs that are not actionable
+// for end users (these come from underlying wasm/runtime libraries).
 const MEDIA_PIPE_LOG_PATTERNS = [
   /XNNPACK delegate/i,
   /FaceBlendshapesGraph acceleration/i,
@@ -72,6 +84,7 @@ const MEDIA_PIPE_LOG_PATTERNS = [
 
 const LOG_FILTER_FLAG = '__mpLogFilterInstalled';
 
+// Helper to detect MediaPipe runtime log messages that should be suppressed.
 function shouldSuppressMediaPipeLog(args: unknown[]) {
   const first = args[0];
   if (typeof first !== 'string') {
@@ -81,6 +94,9 @@ function shouldSuppressMediaPipeLog(args: unknown[]) {
   return MEDIA_PIPE_LOG_PATTERNS.some((pattern) => pattern.test(first));
 }
 
+// Replace console.warn/error with filters so noisy library logs don't
+// flood the console during development. This is safe to call multiple
+// times — it will only install the filter once.
 function installMediaPipeLogFilter() {
   const globalAny = globalThis as typeof globalThis & {
     [LOG_FILTER_FLAG]?: boolean;
@@ -120,6 +136,10 @@ class BehaviorAccumulator {
   private headMovementCount = 0;
   private lastCenter: CenterPoint | null = null;
 
+  // Accumulates per-frame statistics for a short analysis window.
+  // The accumulator tracks how often a face appears, average centering,
+  // head movement magnitude and cumulative emotion scores so we can
+  // synthesize higher-level metrics when the window ends.
   constructor(emotionLabels: string[]) {
     this.emotionLabels = emotionLabels;
     this.emotionSums = new Array(emotionLabels.length).fill(0);
@@ -131,6 +151,8 @@ class BehaviorAccumulator {
   }) {
     this.frameCount += 1;
 
+    // If no face center is provided, count the frame as lacking a face
+    // and clear lastCenter so subsequent movement is not computed.
     if (!input.center) {
       this.lastCenter = null;
       return;
@@ -138,9 +160,13 @@ class BehaviorAccumulator {
 
     this.faceFrameCount += 1;
 
+    // Distance from the normalized center (0.5, 0.5). Smaller is better.
     const centerDistance = Math.hypot(input.center.x - 0.5, input.center.y - 0.5);
     this.centerDistanceSum += centerDistance;
 
+    // Compute per-frame head movement as Euclidean difference between
+    // the facial center points across consecutive frames. This yields
+    // a simple magnitude of motion to inform the movement score.
     if (this.lastCenter) {
       const movement = Math.hypot(
         input.center.x - this.lastCenter.x,
@@ -152,6 +178,7 @@ class BehaviorAccumulator {
 
     this.lastCenter = input.center;
 
+    // Accumulate raw emotion probabilities (or 0 when missing) per-label.
     if (input.emotionProbs) {
       for (let i = 0; i < this.emotionSums.length; i += 1) {
         this.emotionSums[i] += input.emotionProbs[i] ?? 0;
@@ -186,6 +213,11 @@ class BehaviorAccumulator {
       (emotionAverages.disgust ?? 0) +
       (emotionAverages.contempt ?? 0);
 
+    // Combine signals into interpretable scores:
+    // - movementScore: penalizes excessive head motion
+    // - baseConfidence: weighted blend of presence, centering, movement, and positive emotions
+    // - confidencePenalty: penalize missing faces and negative emotions
+    // The exponent applied to confidenceBlend sharpens high confidence values.
     const movementScore = 1 - clamp(avgHeadMovement / 0.15, 0, 1);
     const baseConfidence =
       facePresenceRatio * 0.35 +
@@ -197,36 +229,41 @@ class BehaviorAccumulator {
     const confidenceBlend = Math.pow(adjustedConfidence, 1.6);
     const anxietyBlend = negative * 0.7 + (1 - avgCenteringScore) * 0.3;
 
-      const numericConfidence = Math.round(clamp(confidenceBlend, 0, 1) * 100);
-      const numericAnxiety = Math.round(clamp(anxietyBlend, 0, 1) * 100);
+    const numericConfidence = Math.round(clamp(confidenceBlend, 0, 1) * 100);
+    const numericAnxiety = Math.round(clamp(anxietyBlend, 0, 1) * 100);
 
-      const { label: confidenceLabel, summary: confidenceSummary } = describeConfidence(
-        numericConfidence,
-        facePresenceRatio,
-        numericAnxiety,
-        avgCenteringScore,
-        emotionAverages,
-      );
+    const { label: confidenceLabel, summary: confidenceSummary } = describeConfidence(
+      numericConfidence,
+      facePresenceRatio,
+      numericAnxiety,
+      avgCenteringScore,
+      emotionAverages,
+    );
 
-      return {
-        frameCount: this.frameCount,
-        faceFrameCount: this.faceFrameCount,
-        facePresenceRatio,
-        avgCenteringScore,
-        avgHeadMovement,
-        emotionAverages,
-        confidenceScore: numericConfidence,
-        confidenceLabel,
-        confidenceSummary,
-        anxietyScore: numericAnxiety,
-      };
+    return {
+      frameCount: this.frameCount,
+      faceFrameCount: this.faceFrameCount,
+      facePresenceRatio,
+      avgCenteringScore,
+      avgHeadMovement,
+      emotionAverages,
+      confidenceScore: numericConfidence,
+      confidenceLabel,
+      confidenceSummary,
+      anxietyScore: numericAnxiety,
+    };
   }
 }
 
+// Simple clamp helper to bound a number between min and max.
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+// Build a human-readable confidence label and short summary using
+// the numeric score and auxiliary signals. The heuristics here prefer
+// face visibility and centering; negative emotion presence reduces
+// the confidence label and adds reasons to the summary.
 function describeConfidence(
   score: number,
   facePresenceRatio: number,
@@ -265,6 +302,8 @@ function describeConfidence(
   return { label, summary };
 }
 
+// Numerically-stable softmax implementation for model logits.
+// Subtracting the max value avoids overflow for large logits.
 function softmax(input: Float32Array) {
   let maxValue = -Infinity;
   for (const value of input) {
@@ -282,6 +321,7 @@ function softmax(input: Float32Array) {
   return expValues.map((value) => value / sum);
 }
 
+// Ensure the model-provided dimension is usable; otherwise, fall back.
 function normalizeDimension(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 }
@@ -350,6 +390,9 @@ function computeBoundingBox(landmarks: Array<{ x: number; y: number }>) {
     maxY = Math.max(maxY, landmark.y);
   }
 
+  // Add a small padding around the face box so the emotion model gets
+  // a slightly larger crop. Results are clamped to normalized [0,1]
+  // coordinates to avoid sampling outside the frame.
   const padding = 0.15;
   return {
     minX: clamp(minX - padding, 0, 1),
@@ -391,6 +434,8 @@ export function createBehaviorAnalyzer(configOverrides: Partial<BehaviorAnalyzer
   let frameCtx: CanvasRenderingContext2D | null = null;
   let lastError: Error | null = null;
 
+  // Internal helper to normalize and report errors to the provided handler
+  // while ensuring the analyzer stops running and clears the interval.
   const reportError = (error: unknown) => {
     const normalized =
       error instanceof Error ? error : new Error('Behavior analysis failed to run.');

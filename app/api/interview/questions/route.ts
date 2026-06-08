@@ -63,6 +63,9 @@ export async function POST(request: Request) {
         : 6;
     const difficulty = normalizeDifficulty(body.difficulty);
 
+    // Load user's resume insights from DB. We compute a hash of the job
+    // description so we can detect when the user changes the job context
+    // and therefore needs new questions generated.
     const db = await getMongoDb();
     const resumeDoc = await db.collection('resumeInsights').findOne({ userId });
     const normalizedJobDescription = normalizeJobDescription(resumeDoc?.jobDescription);
@@ -77,6 +80,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check whether we already have generated questions for this resume
+    // + job description + difficulty. If so and the cached document contains
+    // enough questions, return them instead of calling the model again.
     const existingQuestionDoc = await db.collection('interviewQuestions').findOne({ userId });
     const existingQuestions = existingQuestionDoc?.questions;
     const existingJobDescriptionHash =
@@ -92,6 +98,8 @@ export async function POST(request: Request) {
       Array.isArray(existingQuestions) &&
       existingQuestions.length >= questionCount
     ) {
+      // Reuse cached questions — but ensure we always place the
+      // introductory prompt first.
       const introFirstQuestions = ensureIntroQuestionFirst(
         existingQuestions as InterviewQuestion[],
         questionCount,
@@ -104,6 +112,8 @@ export async function POST(request: Request) {
       });
     }
 
+    // Otherwise, call the language model to generate fresh questions
+    // using the stored resume insights and optional job description.
     const generatedQuestions = await generateInterviewQuestionsWithGroq(
       resumeDoc.insights as ResumeInsights,
       questionCount,

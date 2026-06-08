@@ -64,6 +64,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // Ask the language model to evaluate the candidate's answer.
+    // The evaluation is persisted along with optional `behaviorMetrics`
+    // (e.g. face/emotion-derived signals) for analytics or later review.
     const evaluation = await evaluateAnswerWithGroq({
       currentQuestion,
       userAnswer,

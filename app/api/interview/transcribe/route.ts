@@ -47,6 +47,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'audio file is required.' }, { status: 400 });
     }
 
+    // Create the GROQ client and call the audio transcription API.
+    // The endpoint accepts a file upload via multipart form data.
     const groq = new Groq({ apiKey });
     const transcription = await groq.audio.transcriptions.create({
       file: audio,

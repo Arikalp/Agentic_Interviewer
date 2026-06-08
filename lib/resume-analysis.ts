@@ -1,5 +1,8 @@
 import Groq from 'groq-sdk';
 
+// Utilities for extracting structured interview/coaching insights from
+// resume text using a language model service (GROQ). Helpers below
+// sanitize model outputs and provide deterministic fallbacks.
 export type ResumeInsights = {
   summary: string;
   skills: string[];
@@ -70,6 +73,11 @@ function computeFallbackAtsScore(candidate: Record<string, unknown>): number {
   return Math.max(35, Math.min(95, Math.round(computed)));
 }
 
+// Heuristic to compute a fallback ATS score when the model does not
+// provide one. The formula rewards number of skills/strengths, relevant
+// suggested roles and experience, and penalizes improvement areas.
+// The result is clamped to a reasonable 35..95 range.
+
 function sanitizeInsights(raw: unknown): ResumeInsights {
   const candidate = (raw || {}) as Record<string, unknown>;
   const atsScoreRaw =
@@ -95,6 +103,10 @@ function sanitizeInsights(raw: unknown): ResumeInsights {
       : computeFallbackAtsScore(candidate),
   };
 }
+
+// Convert raw model outputs into a safe `ResumeInsights` shape. This
+// protects consumers against malformed or partial JSON returned by the
+// language model and provides deterministic fallbacks.
 
 export function normalizeResumeInsights(raw: unknown): ResumeInsights {
   return sanitizeInsights(raw);

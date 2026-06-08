@@ -164,6 +164,8 @@ export async function POST(request: Request) {
       );
     }
 
+    // Compute a content hash so we can detect unchanged resumes and
+    // avoid re-calling the language model (saving cost).
     const resumeHash = createHash('sha256').update(text).digest('hex');
     const db = await getMongoDb();
     const existing = await db.collection('resumeInsights').findOne(
@@ -182,6 +184,10 @@ export async function POST(request: Request) {
       ? normalizedJobDescriptionFromRequest
       : existingJobDescription;
 
+    // If the resume hasn't changed and we already have insights, reuse
+    // them and optionally update the stored job description. This
+    // prevents unnecessary model invocations when the user uploads the
+    // same resume again.
     if (existing?.resumeHash === resumeHash && existing?.insights) {
       const normalizedInsights = normalizeResumeInsights(existing.insights);
       const shouldUpdateJobDescription = jobDescriptionToPersist !== existingJobDescription;
@@ -215,6 +221,8 @@ export async function POST(request: Request) {
       });
     }
 
+    // Otherwise call the GROQ model to analyze the resume text and
+    // normalize the resulting insights before persisting.
     const insights = normalizeResumeInsights(await analyzeResumeWithGroq(text));
 
     const now = new Date();

@@ -4,6 +4,10 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { Play, Mic, Clock } from "lucide-react";
 
+// Hero / landing section: visually rich header with call-to-action and
+// a mock interview preview. Animations are handled by `framer-motion`.
+// The right-side mock interview card is decorative on large screens and
+// demonstrates the product flow (question -> video -> recording timer).
 export default function HeroSection() {
   return (
     <section className="relative min-h-screen overflow-hidden pt-24 sm:pt-28 md:pt-32 pb-16 sm:pb-20 w-full">
@@ -83,7 +87,7 @@ export default function HeroSection() {
             </div>
           </motion.div>
 
-          {/* Right — Mock Interview UI */}
+          {/* Right — Mock Interview UI (decorative preview for large screens) */}
           <motion.div
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
@@ -99,6 +103,9 @@ export default function HeroSection() {
               }}
             />
 
+            // The card below is intentionally static markup used as a UI
+            // preview. In the actual interview page, these elements are
+            // replaced with live video, timers and model-driven content.
             <div className="glass-card relative overflow-hidden rounded-2xl p-1">
               {/* Top bar */}
               <div className="flex items-center justify-between rounded-t-xl bg-white/[0.03] px-3 sm:px-4 py-2 sm:py-3">
@@ -132,7 +139,7 @@ export default function HeroSection() {
                   </p>
                 </div>
 
-                {/* User video preview */}
+                {/* User video preview (placeholder image) */}
                 <div className="relative overflow-hidden rounded-lg sm:rounded-xl bg-gradient-to-br from-zinc-900 to-zinc-800 aspect-video">
                   <Image
                     src="/interview_demo.png"

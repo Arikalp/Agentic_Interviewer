@@ -10,6 +10,9 @@ import {
   Brain,
 } from "lucide-react";
 
+// Static list of product features used to render the features grid.
+// Kept simple and declarative so designers/product can modify text
+// without touching rendering logic.
 const features = [
   {
     icon: FileText,
@@ -49,6 +52,7 @@ const features = [
   },
 ];
 
+// Framer-motion variants for staggered card entrance animations.
 const containerVariants = {
   hidden: {},
   visible: {
