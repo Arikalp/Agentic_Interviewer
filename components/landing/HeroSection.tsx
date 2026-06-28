@@ -103,9 +103,6 @@ export default function HeroSection() {
               }}
             />
 
-            // The card below is intentionally static markup used as a UI
-            // preview. In the actual interview page, these elements are
-            // replaced with live video, timers and model-driven content.
             <div className="glass-card relative overflow-hidden rounded-2xl p-1">
               {/* Top bar */}
               <div className="flex items-center justify-between rounded-t-xl bg-white/[0.03] px-3 sm:px-4 py-2 sm:py-3">

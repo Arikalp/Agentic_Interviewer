@@ -20,8 +20,9 @@ export const metadata: Metadata = {
   description: 'Practice mock interviews with AI-powered feedback to ace your job interviews',
   manifest: '/manifest.webmanifest',
   icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon.ico',
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
   },
 }
 
