@@ -38,45 +38,62 @@ type InterviewPhase =
   | 'review'
   | 'complete';
 
+// --- Configuration Constants for the Interview Session ---
+// Minimum duration allowed for answering a question (20 seconds)
 const MIN_ANSWER_WINDOW_MS = 20000;
+// Maximum duration allowed for answering a question (2 minutes)
 const MAX_ANSWER_WINDOW_MS = 120000;
+// Time delay between showing the evaluation and moving to the next question automatically (1.6 seconds)
 const REVIEW_DELAY_MS = 1600;
+// Speech synthesis speed rate for the AI interviewer speaking the questions
 const QUESTION_SPEECH_RATE = 1;
 
+/**
+ * Computes a dynamic answer time limit (in milliseconds) for each question.
+ * The duration scales based on:
+ * 1. The word count of the question (longer questions take longer to read and plan).
+ * 2. The difficulty level (easy, medium, hard) which adjusts the base time and per-word speed budget.
+ * 3. Specific focus areas: e.g., introductory questions receive a 10-second bonus window.
+ */
 function computeDynamicAnswerWindowMs(input: {
   question: InterviewQuestion;
   difficulty: InterviewDifficulty;
 }): number {
   const rawQuestion = input.question.question || '';
+  // Count words by splitting space characters
   const wordCount = rawQuestion
     .trim()
     .split(/\s+/)
     .filter(Boolean).length;
 
-  // Base time + per-word budget. Harder rounds get more buffer.
+  // Base setup time (in milliseconds) granted automatically before word counts are factored in
   const baseMsByDifficulty: Record<InterviewDifficulty, number> = {
     easy: 20000,
     medium: 28000,
     hard: 36000,
   };
 
+  // Time added (in milliseconds) for each word in the question depending on selected round difficulty
   const perWordMsByDifficulty: Record<InterviewDifficulty, number> = {
     easy: 700,
     medium: 900,
     hard: 1100,
   };
 
+  // Provide a 10-second bonus window for introductory or self-introduction questions
   const introBonusMs =
     input.question.skillFocus.toLowerCase().includes('introduction') ||
     rawQuestion.toLowerCase().includes('tell me about yourself')
       ? 10000
       : 0;
 
+  // Total calculated time limit
   const computed =
     baseMsByDifficulty[input.difficulty] +
     wordCount * perWordMsByDifficulty[input.difficulty] +
     introBonusMs;
 
+  // Enforce boundary limits (min 20s, max 120s)
   return Math.max(MIN_ANSWER_WINDOW_MS, Math.min(MAX_ANSWER_WINDOW_MS, computed));
 }
 
@@ -453,7 +470,14 @@ export default function InterviewPage() {
     currentQuestionIndex,
   ]);
 
+  /**
+   * Main Interview Automation Loop
+   * This effect runs when the page state matches 'ready' (ready for the next question to begin).
+   * It controls the sequence of speaking the question, recording the audio, analyzing candidate behavior,
+   * transcribing the voice to text, calling the scoring API, inserting dynamic follow-ups, and advancing.
+   */
   useEffect(() => {
+    // Only run this flow if we are in the 'ready' phase, have questions left, and the media stream is active
     if (phase !== 'ready' || !currentQuestion || !streamRef.current) {
       return;
     }
@@ -461,12 +485,14 @@ export default function InterviewPage() {
     let cancelled = false;
 
     const startQuestionFlow = async () => {
+      // Step 1: Speak the current interview question aloud using HTML5 Web Speech Synthesis API
       await speakQuestion(currentQuestion.question);
 
       if (cancelled) {
         return;
       }
 
+      // Reset state variables for the current question's attempt
       setEvaluationError('');
       setRecordedAudioUrl('');
       setRecordedAudioMimeType('audio/webm');
@@ -480,6 +506,7 @@ export default function InterviewPage() {
         return;
       }
 
+      // Step 2: Grab the audio tracks from the active camera/mic stream
       const audioTracks = stream.getAudioTracks();
       const audioOnlyStream = audioTracks.length > 0 ? new MediaStream(audioTracks) : null;
 
@@ -495,6 +522,7 @@ export default function InterviewPage() {
         return;
       }
 
+      // Step 3: Configure the MediaRecorder to capture audio with webm/mp4 codecs
       recordedChunksRef.current = [];
       const preferredMimeTypes = [
         'audio/webm;codecs=opus',
@@ -520,22 +548,26 @@ export default function InterviewPage() {
         return;
       }
 
+      // Push raw audio buffer chunks into memory array as they are received
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           recordedChunksRef.current.push(event.data);
         }
       };
 
+      // Define what happens when the audio recording is stopped
       recorder.onstop = async () => {
         clearPendingTimers();
         stopRecordingTimer();
         setIsRecording(false);
 
+        // Stop facial expressions analysis and get summarized metrics (confidence, anxiety, etc.)
         const capturedBehaviorMetrics = behaviorAnalyzer.stop();
 
         const blobType = recorder.mimeType || supportedMimeType || 'audio/webm';
         const audioBlob = new Blob(recordedChunksRef.current, { type: blobType });
 
+        // Ensure we actually recorded sound
         if (audioBlob.size <= 0) {
           setEvaluationError('No audio was captured for this question.');
           setPhase('review');
@@ -546,12 +578,14 @@ export default function InterviewPage() {
           return;
         }
 
+        // Save recorded audio URL for playback in the dashboard
         const nextUrl = URL.createObjectURL(audioBlob);
         setRecordedAudioUrl(nextUrl);
         setRecordedAudioMimeType(blobType);
         setIsTranscribing(true);
         setPhase('transcribing');
 
+        // Step 4: Package the raw audio Blob as a FormData file upload to call the transcribe endpoint
         const formData = new FormData();
         const fileExtension = blobType.includes('mp4')
           ? 'mp4'
@@ -563,6 +597,7 @@ export default function InterviewPage() {
         let transcript = '';
 
         try {
+          // Perform audio-to-text transcription via Whisper (API)
           const response = await fetch('/api/interview/transcribe', {
             method: 'POST',
             body: formData,
@@ -595,6 +630,7 @@ export default function InterviewPage() {
         const answerToScore = transcript.trim() || 'Transcription unavailable.';
 
         try {
+          // Step 5: Send the transcribed answer and behavior metrics to evaluation API
           const response = await fetch('/api/interview/evaluate', {
             method: 'POST',
             headers: {
@@ -615,6 +651,7 @@ export default function InterviewPage() {
 
           const evaluation = data.evaluation as AnswerEvaluation;
 
+          // Append completed evaluation results to display immediately on dashboard
           setEvaluatedAnswers((prev) => [
             {
               question: currentQuestion.question,
@@ -625,6 +662,9 @@ export default function InterviewPage() {
             ...prev,
           ]);
 
+          // Step 6: Dynamic Follow-up logic.
+          // If the AI evaluator generated a follow-up question, inject it directly into the questions array
+          // as the next item, so the user gets grilled dynamically on details they might have glossed over.
           if (evaluation.followUpQuestion?.trim()) {
             setQuestions((prev) => {
               const exists = prev.some(
@@ -636,6 +676,7 @@ export default function InterviewPage() {
               }
 
               const next = [...prev];
+              // Insert dynamic follow-up immediately after the current index
               next.splice(currentQuestionIndex + 1, 0, {
                 question: evaluation.followUpQuestion,
                 skillFocus: 'Follow-up depth',
@@ -651,6 +692,7 @@ export default function InterviewPage() {
           setIsEvaluatingAnswer(false);
         }
 
+        // Step 7: Transition to review delay, then advance to next question
         setPhase('review');
         reviewTimeoutRef.current = setTimeout(() => {
           setCurrentQuestionIndex((prev) => prev + 1);
@@ -660,6 +702,7 @@ export default function InterviewPage() {
 
       mediaRecorderRef.current = recorder;
 
+      // Step 8: Start Real-time Behavior Facial Expression Analysis (Webcam feed)
       if (videoRef.current) {
         void behaviorAnalyzer
           .start(videoRef.current)
@@ -676,6 +719,7 @@ export default function InterviewPage() {
       }
 
       try {
+        // Step 9: Start audio capture & begin recording timers
         recorder.start();
         setIsRecording(true);
         setPhase('recording');
@@ -688,6 +732,7 @@ export default function InterviewPage() {
         return;
       }
 
+      // Step 10: Automatically trigger recording stop when the dynamic window duration is reached
       recordingTimeoutRef.current = setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
           mediaRecorderRef.current.stop();
@@ -697,6 +742,7 @@ export default function InterviewPage() {
 
     void startQuestionFlow();
 
+    // Cleanup code when leaving the question or component unmounting
     return () => {
       cancelled = true;
       stopQuestionSpeech();

@@ -5,8 +5,12 @@ import { getMongoDb } from '@/lib/mongodb';
 import { analyzeResumeWithGroq, normalizeResumeInsights } from '@/lib/resume-analysis';
 import { extractResumeText } from '@/lib/resume-parser';
 
+// Maximum length of job description string allowed to be processed to prevent LLM prompt overflows
 const MAX_JOB_DESCRIPTION_LENGTH = 8000;
 
+/**
+ * Normalizes DB connection errors and returns appropriate HTTP responses.
+ */
 function normalizeApiError(error: unknown) {
   const message = error instanceof Error ? error.message : 'Unexpected server error.';
 
@@ -26,6 +30,9 @@ function normalizeApiError(error: unknown) {
   return { status: 500, message };
 }
 
+/**
+ * Helper to safely sanitize and trim job description inputs, capping length at MAX_JOB_DESCRIPTION_LENGTH.
+ */
 function normalizeJobDescription(value: unknown): string {
   if (typeof value !== 'string') {
     return '';
@@ -34,7 +41,13 @@ function normalizeJobDescription(value: unknown): string {
   return value.trim().slice(0, MAX_JOB_DESCRIPTION_LENGTH);
 }
 
+/**
+ * GET handler for /api/resume
+ * Retrieves the currently logged-in user's resume insights and associated metadata (e.g., file name, last updated, target job description).
+ * Ensures structural consistency of stored insights using `normalizeResumeInsights` and syncs them back if changed.
+ */
 export async function GET() {
+  // 1. Authenticate user
   const { userId } = await auth();
 
   if (!userId) {
@@ -42,6 +55,7 @@ export async function GET() {
   }
 
   try {
+    // 2. Fetch connection and retrieve user document from resumeInsights collection
     const db = await getMongoDb();
     const doc = await db.collection('resumeInsights').findOne({ userId });
 
@@ -49,6 +63,7 @@ export async function GET() {
       return NextResponse.json({ insights: null });
     }
 
+    // 3. Verify if user has already gone through full resume analysis (has hash and valid insights)
     const hasAnalyzedResume =
       typeof doc.resumeHash === 'string' && doc.resumeHash.length > 0 && Boolean(doc.insights);
 
@@ -64,8 +79,10 @@ export async function GET() {
       });
     }
 
+    // 4. Ensure that the retrieved insights match the current frontend UI structure expectations (normalizes fields)
     const normalizedInsights = normalizeResumeInsights(doc.insights);
 
+    // 5. If the normalized layout differs from what was stored in DB, update DB to synchronize schemas
     if (JSON.stringify(doc.insights) !== JSON.stringify(normalizedInsights)) {
       await db.collection('resumeInsights').updateOne(
         { userId },
@@ -78,6 +95,7 @@ export async function GET() {
       );
     }
 
+    // 6. Return the normalized insights along with files & job description metadata
     return NextResponse.json({
       insights: normalizedInsights,
       metadata: {
@@ -93,7 +111,13 @@ export async function GET() {
   }
 }
 
+/**
+ * PATCH handler for /api/resume
+ * Allows updating only the job description associated with the user's interview context.
+ * Performs an upsert so that the user profile document is initialized if it does not yet exist.
+ */
 export async function PATCH(request: Request) {
+  // 1. Authenticate user
   const { userId } = await auth();
 
   if (!userId) {
@@ -101,13 +125,17 @@ export async function PATCH(request: Request) {
   }
 
   try {
+    // 2. Parse job description input
     const body = (await request.json().catch(() => ({}))) as {
       jobDescription?: unknown;
     };
     const normalizedJobDescription = normalizeJobDescription(body.jobDescription);
     const now = new Date();
+    
+    // 3. Connect to database
     const db = await getMongoDb();
 
+    // 4. Upsert the job description in the database for this specific userId
     await db.collection('resumeInsights').updateOne(
       { userId },
       {
@@ -134,7 +162,15 @@ export async function PATCH(request: Request) {
   }
 }
 
+/**
+ * POST handler for /api/resume
+ * Handles uploading the resume file (PDF or text) and extracting text.
+ * Calculates a SHA-256 hash of the extracted text. If the hash matches an already analyzed resume 
+ * for the user, it skips expensive Llama/Groq AI processing and directly returns the cached insights.
+ * Otherwise, calls the Groq AI service to extract structured metrics/experiences and updates the DB.
+ */
 export async function POST(request: Request) {
+  // 1. Authenticate user
   const { userId } = await auth();
 
   if (!userId) {
@@ -142,6 +178,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    // 2. Retrieve multi-part form data containing the file and job description
     const formData = await request.formData();
     const resumeFile = formData.get('resume');
     const jobDescriptionRaw = formData.get('jobDescription');
@@ -152,6 +189,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Resume file is required.' }, { status: 400 });
     }
 
+    // 3. Parse and extract plain text from the uploaded PDF/document file
     const { text, detectedType } = await extractResumeText(resumeFile);
 
     if (text.length < 80) {
@@ -164,10 +202,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Compute a content hash so we can detect unchanged resumes and
-    // avoid re-calling the language model (saving cost).
+    // 4. Compute a content hash so we can detect unchanged resumes and
+    // avoid re-calling the language model (saving API quota and cost).
     const resumeHash = createHash('sha256').update(text).digest('hex');
     const db = await getMongoDb();
+    
+    // 5. Look up current stored records to verify if we can reuse an existing analysis
     const existing = await db.collection('resumeInsights').findOne(
       { userId },
       {
@@ -184,15 +224,13 @@ export async function POST(request: Request) {
       ? normalizedJobDescriptionFromRequest
       : existingJobDescription;
 
-    // If the resume hasn't changed and we already have insights, reuse
-    // them and optionally update the stored job description. This
-    // prevents unnecessary model invocations when the user uploads the
-    // same resume again.
+    // 6. If the resume hash matches the existing one, skip LLM calls and return the saved data
     if (existing?.resumeHash === resumeHash && existing?.insights) {
       const normalizedInsights = normalizeResumeInsights(existing.insights);
       const shouldUpdateJobDescription = jobDescriptionToPersist !== existingJobDescription;
       let updatedAt = existing.updatedAt;
 
+      // Update stored insights structure or job description if they have changed
       if (
         JSON.stringify(existing.insights) !== JSON.stringify(normalizedInsights) ||
         shouldUpdateJobDescription
@@ -221,12 +259,12 @@ export async function POST(request: Request) {
       });
     }
 
-    // Otherwise call the GROQ model to analyze the resume text and
-    // normalize the resulting insights before persisting.
+    // 7. If the resume has changed, invoke Groq model to extract professional insights from raw text
     const insights = normalizeResumeInsights(await analyzeResumeWithGroq(text));
 
     const now = new Date();
 
+    // 8. Upsert the new insights, fileName, fileType, hash, and metadata in the resumeInsights collection
     await db.collection('resumeInsights').updateOne(
       { userId },
       {
@@ -247,6 +285,7 @@ export async function POST(request: Request) {
       { upsert: true },
     );
 
+    // 9. Return the fresh resume analysis structure
     return NextResponse.json({
       insights,
       updatedAt: now.toISOString(),
