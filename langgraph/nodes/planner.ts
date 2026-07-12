@@ -47,7 +47,16 @@ export async function planner(state: GraphState): Promise<Partial<GraphState>> {
   let nextTopic = currentTopic;
   const coveredTopics = [...interviewState.coveredTopics];
 
-  if (seemsStruggling) {
+  // ── Post-intro pivot ──────────────────────────────────────────────────────
+  // After the candidate answers the intro question, mark 'Introduction' as
+  // covered and force a topic change so the next question is resume-grounded.
+  if (currentTopic === 'Introduction') {
+    if (!coveredTopics.includes('Introduction')) {
+      coveredTopics.push('Introduction');
+    }
+    plannerAction = 'change_topic';
+    nextTopic = ''; // questionGenerator will pick from resume context
+  } else if (seemsStruggling) {
     // Candidate is struggling — simplify or stay at the same level
     plannerAction = 'simplify';
     nextDifficulty = difficulty === 'Hard' ? 'Medium' : difficulty === 'Medium' ? 'Easy' : 'Easy';

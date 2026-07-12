@@ -4,6 +4,7 @@ import { getMongoDb } from '@/lib/mongodb';
 import { runInterviewRAG } from '@/langgraph/graph';
 import { createInitialInterviewState } from '@/models/InterviewState';
 import type { InterviewState } from '@/models/InterviewState';
+import { INTRO_INTERVIEW_QUESTION } from '@/lib/resume-analysis';
 
 /**
  * POST /api/interview/rag-question
@@ -72,7 +73,25 @@ export async function POST(request: Request) {
     const interviewState: InterviewState =
       body.interviewState ?? createInitialInterviewState(userId, sessionId);
 
-    // 5. Run the full LangGraph RAG pipeline
+    // 5. ── Intro question gate ────────────────────────────────────────────
+    // The very first call of every session has no latestAnswer yet.
+    // Always return the fixed "introduce yourself" question immediately,
+    // without touching the RAG pipeline. This mirrors real interviews where
+    // the opener is always "Tell me about yourself."
+    if (!latestAnswer) {
+      return NextResponse.json({
+        generatedQuestion: INTRO_INTERVIEW_QUESTION.question,
+        skillFocus: INTRO_INTERVIEW_QUESTION.skillFocus,
+        isIntroQuestion: true,
+        updatedInterviewState: {
+          ...interviewState,
+          currentTopic: 'Introduction',
+          plannerAction: 'stay_on_topic',
+        },
+      });
+    }
+
+    // 6. Run the full LangGraph RAG pipeline for all turns after the intro
     const { generatedQuestion, updatedInterviewState } = await runInterviewRAG({
       userId,
       sessionId,
@@ -81,7 +100,7 @@ export async function POST(request: Request) {
       interviewState,
     });
 
-    // 6. Return the generated question and updated state
+    // 7. Return the generated question and updated state
     return NextResponse.json({
       generatedQuestion,
       updatedInterviewState,

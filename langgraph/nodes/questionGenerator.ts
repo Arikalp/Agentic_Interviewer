@@ -5,6 +5,7 @@ import {
   formatRecentMemoryContext,
   formatInterviewStateContext,
 } from '@/lib/rag/context-builder';
+import { INTRO_INTERVIEW_QUESTION } from '@/lib/resume-analysis';
 import type { GraphState } from '@/langgraph/graph';
 
 /**
@@ -27,6 +28,14 @@ export async function questionGenerator(state: GraphState): Promise<Partial<Grap
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('Missing GROQ_API_KEY');
 
+  // ── Intro question safety guard ─────────────────────────────────────────
+  // The API route already handles the first-turn case before invoking the
+  // graph, but this guard ensures the intro question is always returned if
+  // the graph is invoked with no latestAnswer (e.g. questionCount === 0).
+  if (!state.latestAnswer?.trim()) {
+    return { generatedQuestion: INTRO_INTERVIEW_QUESTION.question };
+  }
+
   const groq = new Groq({ apiKey });
 
   // ── Build context blocks ────────────────────────────────────────────────
@@ -38,6 +47,9 @@ export async function questionGenerator(state: GraphState): Promise<Partial<Grap
     : 'Interview State: Not available';
 
   // ── Prompt ──────────────────────────────────────────────────────────────
+  const hasNoTopic = !state.interviewState?.currentTopic ||
+    state.interviewState.currentTopic === '';
+
   const systemPrompt = `You are a Senior Technical Interviewer conducting a live technical interview.
 
 ${resumeContext}
@@ -50,7 +62,11 @@ ${interviewStateContext}
 
 Instructions:
 - Ask exactly ONE follow-up question.
-- Continue the current topic when possible.
+- NEVER ask "Tell me about yourself" or any introduction question — that has already been asked.
+- ${hasNoTopic
+    ? 'The candidate just finished their introduction. Pick the most interesting topic from the Resume Context above and ask a specific technical question about it.'
+    : 'Continue the current topic when possible.'
+  }
 - Increase difficulty gradually based on the Interview State.
 - Never repeat a question already asked in the Recent Conversation.
 - If the candidate is struggling (short or vague answer), simplify the question.
@@ -58,9 +74,9 @@ Instructions:
 - Sound like a real senior interviewer — concise, professional, no filler.
 - Return ONLY the question text. No explanations, no preambles.`;
 
-  const userPrompt = `Current Question: ${state.currentQuestion || 'Start of interview'}
+  const userPrompt = `Current Question: ${state.currentQuestion || 'Introduction complete — ask the first technical question'}
 
-Latest Candidate Answer: ${state.latestAnswer || '(No answer yet — ask the first question)'}
+Latest Candidate Answer: ${state.latestAnswer}
 
 Generate the next interview question:`;
 
