@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/mongodb';
 import { analyzeResumeWithGroq, normalizeResumeInsights } from '@/lib/resume-analysis';
 import { extractResumeText } from '@/lib/resume-parser';
+import { embedAndStoreResume } from '@/lib/rag';
 
 // Maximum length of job description string allowed to be processed to prevent LLM prompt overflows
 const MAX_JOB_DESCRIPTION_LENGTH = 8000;
@@ -285,7 +286,18 @@ export async function POST(request: Request) {
       { upsert: true },
     );
 
-    // 9. Return the fresh resume analysis structure
+    // 9. Chunk, embed, and store resume vectors in the background.
+    // Failures are logged but never surfaced to the client — the resume
+    // upload must succeed even if the vector store is temporarily unavailable.
+    embedAndStoreResume(userId, text).then(({ chunkCount }) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[RAG] Stored ${chunkCount} resume chunks for user ${userId}`);
+      }
+    }).catch((err: unknown) => {
+      console.error('[RAG] embedAndStoreResume failed (non-fatal):', err);
+    });
+
+    // 10. Return the fresh resume analysis structure
     return NextResponse.json({
       insights,
       updatedAt: now.toISOString(),
