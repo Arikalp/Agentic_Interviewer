@@ -1,3 +1,50 @@
+/**
+ * ============================================================
+ * FILE: lib/behavior-analysis.ts
+ * PURPOSE: Browser-side real-time facial behavior analyzer
+ * ============================================================
+ *
+ * This module provides a factory function `createBehaviorAnalyzer()`
+ * that returns an analyzer object capable of processing a live
+ * video feed to measure candidate behavior during an interview.
+ *
+ * TECHNOLOGY STACK:
+ *  - MediaPipe FaceLandmarker : Detects facial landmarks in each
+ *    video frame (468 3D points per face).
+ *  - ONNX Runtime (Web)       : Runs the FER+ emotion classification
+ *    model (ferplus.onnx) to predict 8 emotion probabilities.
+ *  - fastembed (client-side)  : NOT used here; embeddings are server-side.
+ *
+ * HOW IT WORKS (per-frame pipeline):
+ *  1. A setInterval ticks at `fps` (default: 5 fps).
+ *  2. Each tick calls `processFrame()` which:
+ *     a. Draws the video frame to a hidden canvas.
+ *     b. Runs MediaPipe face detection to get facial landmarks.
+ *     c. Extracts the face bounding box and crops the face region.
+ *     d. Resizes the crop to the ONNX model's expected input (64x64 px).
+ *     e. Converts the crop to a Float32Array tensor.
+ *     f. Runs the ONNX inference session to get 8 emotion logits.
+ *     g. Applies softmax to get emotion probabilities.
+ *     h. Feeds data into the `BehaviorAccumulator`.
+ *  3. When `stop()` is called, the accumulator computes final metrics.
+ *
+ * FACTORY PATTERN:
+ * `createBehaviorAnalyzer()` returns a plain object `{ prepare, start, stop, isRunning }`.
+ * This avoids class instantiation overhead and makes testing easier.
+ * Configuration is passed via `configOverrides` to override any default.
+ *
+ * ENVIRONMENT:
+ * This module runs ONLY in the browser (it uses `document`, `HTMLVideoElement`,
+ * `canvas`, etc.). It must NOT be imported in server-side code.
+ *
+ * ASSETS (must be served at these URLs):
+ *  - /models/ferplus.onnx          : FER+ emotion ONNX model
+ *  - /models/face_landmarker.task  : MediaPipe face landmarker model
+ *  - /wasm/onnxruntime/            : ONNX Runtime WASM binaries
+ *  - /wasm/mediapipe               : MediaPipe WASM binaries
+ * ============================================================
+ */
+
 import type { BehaviorMetrics } from '@/lib/behavior-metrics';
 
 // Configuration shape expected by the behavior analyzer factory.
@@ -419,6 +466,26 @@ function averageLandmark(landmarks: Array<{ x: number; y: number }>): CenterPoin
   };
 }
 
+/**
+ * createBehaviorAnalyzer (EXPORTED)
+ * ----------------------------------
+ * Factory function that creates a complete behavior analyzer instance.
+ * Returns a plain object with four methods: prepare, start, stop, isRunning.
+ *
+ * HOW IT WORKS:
+ *  1. `prepare()` : Pre-loads ML models asynchronously (optional, for perf).
+ *  2. `start(video)`: Begins processing frames from the video element at `fps`.
+ *  3. `stop()` : Stops the interval, computes final metrics, returns them.
+ *  4. `isRunning()`: Returns boolean indicating active state.
+ *
+ * LAZY LOADING:
+ * Models are not loaded until `start()` or `prepare()` is called.
+ * `loadAssets()` is idempotent — it caches the promise so models
+ * are only loaded once regardless of how many times it's called.
+ *
+ * @param configOverrides - Partial config to override any default settings.
+ * @returns               - Analyzer object with prepare/start/stop/isRunning.
+ */
 export function createBehaviorAnalyzer(configOverrides: Partial<BehaviorAnalyzerConfig> = {}) {
   const config = { ...DEFAULT_CONFIG, ...configOverrides };
   let assetsPromise: Promise<VisionAssets> | null = null;
@@ -594,6 +661,19 @@ export function createBehaviorAnalyzer(configOverrides: Partial<BehaviorAnalyzer
     }
   };
 
+  /**
+   * start
+   * -----
+   * Loads ML models (if not already loaded), sets up offscreen canvas
+   * contexts, creates a new accumulator for this session, and starts
+   * the per-frame processing interval.
+   *
+   * The interval fires every `max(1000 / fps, 120)` milliseconds.
+   * The 120ms floor prevents the interval from running faster than ~8fps
+   * even if `fps` is set very high.
+   *
+   * @param video - The live HTMLVideoElement from the interview camera.
+   */
   const start = async (video: HTMLVideoElement) => {
     if (running) {
       return;
@@ -617,15 +697,25 @@ export function createBehaviorAnalyzer(configOverrides: Partial<BehaviorAnalyzer
       return;
     }
 
+    // Create a fresh accumulator for this session's metrics
     accumulator = new BehaviorAccumulator(config.emotionLabels);
     running = true;
 
+    // Compute interval delay: fps setting with a 120ms minimum floor
     const intervalMs = Math.max(1000 / config.fps, 120);
     intervalId = setInterval(() => {
       void processFrame();
     }, intervalMs);
   };
 
+  /**
+   * stop
+   * ----
+   * Halts the processing interval, triggers the accumulator to compute
+   * final summary metrics, and resets all state for the next session.
+   *
+   * @returns - A BehaviorMetrics summary, or null if no frames were processed.
+   */
   const stop = () => {
     running = false;
     processing = false;
@@ -635,18 +725,22 @@ export function createBehaviorAnalyzer(configOverrides: Partial<BehaviorAnalyzer
       intervalId = null;
     }
 
+    // Compute and return the final behavioral metrics for this session
     const summary = accumulator?.summarize() ?? null;
+    // Reset accumulator so a new session can start cleanly
     accumulator = null;
 
     return summary;
   };
 
   return {
+    /** Pre-load ML models without starting the frame loop */
     prepare: async () => {
       await loadAssets();
     },
     start,
     stop,
+    /** Returns true if the frame processing loop is active */
     isRunning: () => running,
   };
 }

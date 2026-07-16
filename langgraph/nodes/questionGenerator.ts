@@ -1,3 +1,36 @@
+/**
+ * ============================================================
+ * FILE: langgraph/nodes/questionGenerator.ts
+ * PURPOSE: LangGraph Node 5 — generate the next interview question
+ * ============================================================
+ *
+ * WHAT IT DOES:
+ * Assembles a RAG-enriched prompt from all retrieved context
+ * (resume chunks, similar turns, recent turns, interview state)
+ * and calls the Groq LLM to generate exactly ONE adaptive
+ * follow-up interview question.
+ *
+ * PROMPT STRATEGY:
+ *  - System prompt = full RAG context blocks + strict instructions
+ *  - User prompt   = the current question + the candidate's answer
+ *  - Temperature   = 0.5 (balanced: creative but consistent)
+ *  - max_tokens    = 200 (keeps questions concise)
+ *
+ * INTRO QUESTION GUARD:
+ * If no latestAnswer is present (first turn), the intro question
+ * constant is returned immediately without calling the LLM at all.
+ * This avoids an unnecessary API call on the very first turn.
+ *
+ * FALLBACK:
+ * If the Groq API returns nothing, a safe generic fallback question
+ * is used so the interview never stalls.
+ *
+ * ENVIRONMENT VARIABLES:
+ *  - GROQ_API_KEY : Required (throws if missing)
+ *  - GROQ_MODEL   : Optional (defaults to 'llama-3.3-70b-versatile')
+ * ============================================================
+ */
+
 import Groq from 'groq-sdk';
 import {
   formatResumeContext,
@@ -25,6 +58,7 @@ import type { GraphState } from '@/langgraph/graph';
  * Updates state.generatedQuestion.
  */
 export async function questionGenerator(state: GraphState): Promise<Partial<GraphState>> {
+  // Step 1: Validate that the GROQ API key is available
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('Missing GROQ_API_KEY');
 
@@ -32,12 +66,16 @@ export async function questionGenerator(state: GraphState): Promise<Partial<Grap
   // The API route already handles the first-turn case before invoking the
   // graph, but this guard ensures the intro question is always returned if
   // the graph is invoked with no latestAnswer (e.g. questionCount === 0).
+  // Returning early avoids an unnecessary LLM call on the first turn.
   if (!state.latestAnswer?.trim()) {
     return { generatedQuestion: INTRO_INTERVIEW_QUESTION.question };
   }
 
+  // Step 2: Initialize the Groq client using the API key
   const groq = new Groq({ apiKey });
 
+  // Step 3: Format all retrieved context into readable blocks for the prompt.
+  // Each formatter takes the raw data and returns a labelled text block.
   // ── Build context blocks ────────────────────────────────────────────────
   const resumeContext = formatResumeContext(state.resumeChunks);
   const conversationMemoryContext = formatConversationMemoryContext(state.similarConversationTurns);
@@ -46,6 +84,8 @@ export async function questionGenerator(state: GraphState): Promise<Partial<Grap
     ? formatInterviewStateContext(state.interviewState)
     : 'Interview State: Not available';
 
+  // Determine if we are in a topic-change situation (planner set currentTopic to '')
+  // This changes the instruction in the system prompt accordingly
   // ── Prompt ──────────────────────────────────────────────────────────────
   const hasNoTopic = !state.interviewState?.currentTopic ||
     state.interviewState.currentTopic === '';
@@ -80,6 +120,9 @@ Latest Candidate Answer: ${state.latestAnswer}
 
 Generate the next interview question:`;
 
+  // Step 4: Call the Groq LLM with the assembled prompt.
+  // temperature=0.5 balances creativity with consistency.
+  // max_tokens=200 keeps questions short and focused.
   // ── Groq call ───────────────────────────────────────────────────────────
   const completion = await groq.chat.completions.create({
     model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
@@ -91,6 +134,9 @@ Generate the next interview question:`;
     ],
   });
 
+  // Step 5: Extract the generated question from the LLM response.
+  // The `|| '...'` fallback ensures the interview never stalls if the
+  // model returns an empty response.
   const generatedQuestion =
     completion.choices[0]?.message?.content?.trim() ||
     'Can you walk me through a challenging project you have worked on recently?';

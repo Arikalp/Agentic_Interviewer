@@ -1,3 +1,31 @@
+/**
+ * ============================================================
+ * FILE: models/ResumeChunk.ts
+ * PURPOSE: MongoDB document type for resume text chunks
+ * ============================================================
+ *
+ * When a user uploads a resume, it is split into multiple
+ * `ResumeChunk` documents by `chunkResumeText()` in chunker.ts.
+ * Each chunk covers one semantic section (e.g., "Projects",
+ * "Experience", "Skills") and is embedded as a 384-dim vector.
+ *
+ * WHY CHUNKS INSTEAD OF ONE DOCUMENT?
+ * Embedding the entire resume as one vector loses granularity.
+ * By splitting into focused chunks, the vector search can
+ * retrieve just the relevant section (e.g., only "Projects"
+ * when the candidate answered about project work), giving the
+ * LLM higher-quality, more focused context.
+ *
+ * STORAGE:
+ *  - All old chunks for a user are deleted before new ones
+ *    are inserted (see `upsertResumeChunks()` in vector-store.ts).
+ *  - This ensures stale resume data is never mixed with the new.
+ *
+ * COLLECTION: `resume_chunks`
+ * VECTOR INDEX: `resume_vector_index` (Atlas UI)
+ * ============================================================
+ */
+
 import type { ObjectId } from 'mongodb';
 
 /**
