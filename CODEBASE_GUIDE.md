@@ -22,7 +22,7 @@ Every file in the codebase does one of four things:
 
 ---
 
-## 📍 Phase 1 — The Data Contracts (15 min)
+## 📍 Phase 1 — The Data Contracts (15 min) -> DONE
 
 > **Read these first.** They define the exact shape of every piece of data in the system.
 > Once you know the shapes, the logic in every other file becomes obvious.
@@ -46,7 +46,7 @@ models/ResumeChunk.ts           ← What a resume section looks like in MongoDB
 
 ---
 
-## 📍 Phase 2 — The Database Layer (20 min)
+## 📍 Phase 2 — The Database Layer (20 min) -> DONE
 
 > Understand how data is persisted and retrieved **before** reading business logic.
 
@@ -73,7 +73,7 @@ lib/rag/vector-store.ts         ← All MongoDB reads/writes for the RAG system
 
 ---
 
-## 📍 Phase 3 — The Embedding Engine (15 min)
+## 📍 Phase 3 — The Embedding Engine (15 min) -> DONE
 
 > Understand how text becomes a searchable number vector.
 
@@ -98,7 +98,7 @@ lib/rag/chunker.ts              ← How a resume is split into focused section c
 
 ---
 
-## 📍 Phase 4 — The Resume Upload Flow (20 min)
+## 📍 Phase 4 — The Resume Upload Flow (20 min) -> DONE
 
 > Trace what happens end-to-end when a user uploads their resume.
 
@@ -147,7 +147,7 @@ app/api/resume/route.ts
 
 ---
 
-## 📍 Phase 5 — The RAG Context Building (15 min)
+## 📍 Phase 5 — The RAG Context Building (15 min) -> DONE
 
 > Understand how retrieved MongoDB data becomes readable LLM prompt text.
 
@@ -174,7 +174,7 @@ lib/rag/context-builder.ts      ← Format raw data into labelled prompt text bl
 
 ---
 
-## 📍 Phase 6 — The LangGraph Brain ⭐ (30 min)
+## 📍 Phase 6 — The LangGraph Brain ⭐ (30 min) -> DONE
 
 > **This is the core of the system. Read carefully.** 80% of the AI intelligence lives here.
 
