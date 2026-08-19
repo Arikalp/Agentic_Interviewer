@@ -276,7 +276,7 @@ export async function POST(request: Request) {
           insights,
           jobDescription: jobDescriptionToPersist,
           updatedAt: now,
-          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_MODEL || 'qwen/qwen3.6-27b',
         },
         $setOnInsert: {
           createdAt: now,

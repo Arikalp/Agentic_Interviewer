@@ -190,7 +190,7 @@ export async function analyzeResumeWithGroq(resumeText: string): Promise<ResumeI
   const groq = new Groq({ apiKey });
 
   const completion = await groq.chat.completions.create({
-    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+    model: process.env.GROQ_MODEL || 'qwen/qwen3.6-27b',
     temperature: 0.2,
     response_format: { type: 'json_object' },
     messages: [
@@ -231,7 +231,7 @@ export async function generateInterviewQuestionsWithGroq(
   const remainingQuestionCount = Math.max(1, questionCount - 1);
 
   const completion = await groq.chat.completions.create({
-    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+    model: process.env.GROQ_MODEL || 'qwen/qwen3.6-27b',
     temperature: 0.4,
     response_format: { type: 'json_object' },
     messages: [
@@ -278,7 +278,7 @@ export async function evaluateAnswerWithGroq(input: {
   const groq = new Groq({ apiKey });
 
   const completion = await groq.chat.completions.create({
-    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+    model: process.env.GROQ_MODEL || 'qwen/qwen3.6-27b',
     temperature: 0.3,
     response_format: { type: 'json_object' },
     messages: [
