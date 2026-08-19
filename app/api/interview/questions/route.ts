@@ -59,8 +59,8 @@ export async function POST(request: Request) {
     };
     const questionCount =
       typeof body.questionCount === 'number'
-        ? Math.max(3, Math.min(10, Math.round(body.questionCount)))
-        : 6;
+        ? Math.max(3, Math.min(15, Math.round(body.questionCount)))
+        : 15;
     const difficulty = normalizeDifficulty(body.difficulty);
 
     // Load user's resume insights from DB. We compute a hash of the job

@@ -134,7 +134,7 @@ function sanitizeQuestions(raw: unknown): InterviewQuestion[] {
       return { question, skillFocus };
     })
     .filter((item): item is InterviewQuestion => Boolean(item))
-    .slice(0, 10);
+    .slice(0, 15);
 
   return questions;
 }

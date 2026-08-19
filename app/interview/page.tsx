@@ -29,6 +29,17 @@ type EvaluatedAnswer = {
   behaviorMetrics?: BehaviorMetrics | null;
 };
 
+type PerformanceTier = 'Excellent' | 'Good' | 'Needs Work' | 'Developing';
+
+type InterviewSummary = {
+  overallScore: number;
+  tier: PerformanceTier;
+  strengths: string[];
+  improvementAreas: string[];
+  totalQuestions: number;
+  speechText: string;
+};
+
 type InterviewPhase =
   | 'booting'
   | 'ready'
@@ -36,6 +47,7 @@ type InterviewPhase =
   | 'transcribing'
   | 'scoring'
   | 'review'
+  | 'summary'
   | 'complete';
 
 // --- Configuration Constants for the Interview Session ---
@@ -47,6 +59,8 @@ const MAX_ANSWER_WINDOW_MS = 120000;
 const REVIEW_DELAY_MS = 1600;
 // Speech synthesis speed rate for the AI interviewer speaking the questions
 const QUESTION_SPEECH_RATE = 1;
+// Hard cap on total questions per interview session (including AI-injected follow-ups)
+const MAX_QUESTIONS = 15;
 
 /**
  * Computes a dynamic answer time limit (in milliseconds) for each question.
@@ -138,6 +152,7 @@ export default function InterviewPage() {
   const [isQuestionVoiceOn, setIsQuestionVoiceOn] = useState(true);
   const [selectedDifficulty, setSelectedDifficulty] = useState<InterviewDifficulty>('medium');
   const [recordingRemainingMs, setRecordingRemainingMs] = useState<number | null>(null);
+  const [interviewSummary, setInterviewSummary] = useState<InterviewSummary | null>(null);
 
   const behaviorAnalyzer = useMemo(
     () =>
@@ -361,7 +376,7 @@ export default function InterviewPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ questionCount: 6, difficulty: selectedDifficulty }),
+          body: JSON.stringify({ questionCount: MAX_QUESTIONS, difficulty: selectedDifficulty }),
         });
 
         const data = await response.json();
@@ -458,7 +473,7 @@ export default function InterviewPage() {
 
     if (!isLoadingQuestions && !questionError && questions.length > 0 && currentQuestionIndex >= questions.length) {
       clearPendingTimers();
-      setPhase('complete');
+      setPhase('summary');
     }
   }, [
     isLoaded,
@@ -663,10 +678,15 @@ export default function InterviewPage() {
           ]);
 
           // Step 6: Dynamic Follow-up logic.
-          // If the AI evaluator generated a follow-up question, inject it directly into the questions array
-          // as the next item, so the user gets grilled dynamically on details they might have glossed over.
+          // If the AI evaluator generated a follow-up question AND we are below the 15-question cap,
+          // inject it directly as the next question in the queue.
           if (evaluation.followUpQuestion?.trim()) {
             setQuestions((prev) => {
+              // Never exceed MAX_QUESTIONS total
+              if (prev.length >= MAX_QUESTIONS) {
+                return prev;
+              }
+
               const exists = prev.some(
                 (q) => q.question.trim().toLowerCase() === evaluation.followUpQuestion.trim().toLowerCase(),
               );
@@ -757,6 +777,74 @@ export default function InterviewPage() {
     void stopQuestionSpeech();
   }, [isQuestionVoiceOn]);
 
+  // ── Summary computation + voice readout ─────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'summary' || evaluatedAnswers.length === 0) {
+      return;
+    }
+
+    // Compute overall score (average of all evaluated answers)
+    const avgScore = Math.round(
+      evaluatedAnswers.reduce((acc, ea) => acc + ea.evaluation.score, 0) / evaluatedAnswers.length,
+    );
+
+    // Deduplicate strengths and improvement areas across all evaluated answers
+    const allStrengths = Array.from(
+      new Set(evaluatedAnswers.flatMap((ea) => ea.evaluation.strengths)),
+    ).slice(0, 5);
+
+    const allImprovements = Array.from(
+      new Set(evaluatedAnswers.flatMap((ea) => ea.evaluation.improvementAreas)),
+    ).slice(0, 5);
+
+    // Determine performance tier
+    const tier: PerformanceTier =
+      avgScore >= 85
+        ? 'Excellent'
+        : avgScore >= 70
+          ? 'Good'
+          : avgScore >= 50
+            ? 'Needs Work'
+            : 'Developing';
+
+    // Build the speech text
+    const strengthsText =
+      allStrengths.length > 0
+        ? `Your top strengths include: ${allStrengths.slice(0, 3).join(', ')}.`
+        : '';
+    const improvementsText =
+      allImprovements.length > 0
+        ? `To improve, focus on: ${allImprovements.slice(0, 3).join(', ')}.`
+        : '';
+    const speechText = [
+      `Interview complete.`,
+      `You answered ${evaluatedAnswers.length} question${evaluatedAnswers.length !== 1 ? 's' : ''}.`,
+      `Your overall score is ${avgScore} out of 100, which is ${tier}.`,
+      strengthsText,
+      improvementsText,
+      tier === 'Excellent' || tier === 'Good'
+        ? 'Outstanding effort — keep up the great work!'
+        : 'Keep practising and you will see steady improvement. Well done for completing the interview!',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    setInterviewSummary({
+      overallScore: avgScore,
+      tier,
+      strengths: allStrengths,
+      improvementAreas: allImprovements,
+      totalQuestions: evaluatedAnswers.length,
+      speechText,
+    });
+
+    // Speak the summary aloud
+    void speakQuestion(speechText).then(() => {
+      setPhase('complete');
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   if (!isLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">
@@ -778,7 +866,18 @@ export default function InterviewPage() {
               ? 'Scoring'
               : phase === 'review'
                 ? 'Advancing'
-                : 'Complete';
+                : phase === 'summary'
+                  ? 'Summarising'
+                  : 'Complete';
+
+  const tierColor =
+    interviewSummary?.tier === 'Excellent'
+      ? { ring: 'border-emerald-400', text: 'text-emerald-300', bg: 'bg-emerald-500/10' }
+      : interviewSummary?.tier === 'Good'
+        ? { ring: 'border-blue-400', text: 'text-blue-300', bg: 'bg-blue-500/10' }
+        : interviewSummary?.tier === 'Needs Work'
+          ? { ring: 'border-amber-400', text: 'text-amber-300', bg: 'bg-amber-500/10' }
+          : { ring: 'border-red-400', text: 'text-red-300', bg: 'bg-red-500/10' };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] px-4 py-8 sm:px-6 lg:px-8">
@@ -982,10 +1081,64 @@ export default function InterviewPage() {
                   </p>
                 </div>
               </>
-            ) : phase === 'complete' ? (
-              <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 text-sm text-orange-100/85">
-                The automated interview is finished. Review the scores on the left and return to the
-                dashboard when you are done.
+            ) : phase === 'summary' || phase === 'complete' ? (
+              <div className="space-y-4">
+                {/* Reading indicator while voice plays */}
+                {phase === 'summary' && (
+                  <div className="flex items-center gap-2 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-sm text-orange-200">
+                    <LoaderCircle className="h-4 w-4 animate-spin text-orange-300" />
+                    Reading your performance summary aloud…
+                  </div>
+                )}
+
+                {interviewSummary && (
+                  <>
+                    {/* Overall score ring */}
+                    <div className={`flex flex-col items-center gap-2 rounded-2xl border ${tierColor.ring} ${tierColor.bg} p-5`}>
+                      <p className="text-xs uppercase tracking-widest text-zinc-400">Overall Performance</p>
+                      <div className={`flex h-24 w-24 items-center justify-center rounded-full border-4 ${tierColor.ring} bg-black/30`}>
+                        <span className={`text-2xl font-bold ${tierColor.text}`}>{interviewSummary.overallScore}</span>
+                      </div>
+                      <p className={`text-sm font-semibold ${tierColor.text}`}>{interviewSummary.tier}</p>
+                      <p className="text-xs text-zinc-500">{interviewSummary.totalQuestions} question{interviewSummary.totalQuestions !== 1 ? 's' : ''} completed</p>
+                    </div>
+
+                    {/* Strengths */}
+                    {interviewSummary.strengths.length > 0 && (
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-400">✅ Top Strengths</p>
+                        <ul className="space-y-1">
+                          {interviewSummary.strengths.map((s, i) => (
+                            <li key={i} className="text-sm text-zinc-300">• {s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Improvement areas */}
+                    {interviewSummary.improvementAreas.length > 0 && (
+                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-400">🎯 Areas to Improve</p>
+                        <ul className="space-y-1">
+                          {interviewSummary.improvementAreas.map((a, i) => (
+                            <li key={i} className="text-sm text-zinc-300">• {a}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Done CTA */}
+                    {phase === 'complete' && (
+                      <button
+                        type="button"
+                        onClick={() => router.push('/dashboard')}
+                        className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:shadow-orange-500/50"
+                      >
+                        Go to Dashboard →
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             ) : null}
 
