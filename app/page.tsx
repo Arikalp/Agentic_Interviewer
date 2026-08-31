@@ -3,6 +3,7 @@
 import { useUser } from "@clerk/nextjs";
 import Navbar from "@/components/landing/Navbar";
 import HeroSection from "@/components/landing/HeroSection";
+import PricingSection from "@/components/landing/PricingSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import DemoSection from "@/components/landing/DemoSection";
 import HowItWorksSection from "@/components/landing/HowItWorksSection";
@@ -29,6 +30,7 @@ export default function Home() {
             <DemoSection />
             <HowItWorksSection />
             <InsightsSection />
+            <PricingSection />
             <CTASection />
           </>
         )}
