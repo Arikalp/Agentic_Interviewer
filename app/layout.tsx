@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Analytics } from '@vercel/analytics/next'
 import { Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google'
@@ -35,11 +34,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <Script
+        {/* Google AdSense */}
+        <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4058729107300611"
           crossOrigin="anonymous"
-          strategy="beforeInteractive"
         />
       </head>
       <body className={`${plusJakartaSans.className} ${plusJakartaSans.variable} ${geistMono.variable} antialiased`}>
