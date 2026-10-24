@@ -99,7 +99,7 @@ export default function DemoSection() {
                         <Mic className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white" />
                       </div>
                       <span className="text-[10px] sm:text-xs font-semibold text-orange-400">
-                        Intervo
+                        Intervoo
                       </span>
                       <span className="text-[9px] text-zinc-600">
                         just now

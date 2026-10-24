@@ -7,7 +7,7 @@ export default function HowItWorksPage() {
     {
       number: "1",
       title: "Sign Up",
-      description: "Create your free Intervo account in seconds with email or social login.",
+      description: "Create your free Intervoo account in seconds with email or social login.",
       details: "No credit card required. You can start practicing immediately after signing up.",
     },
     {
@@ -54,7 +54,7 @@ export default function HowItWorksPage() {
             ← Back to Home
           </Link>
           <h1 className="text-4xl font-bold text-white sm:text-5xl">How It Works</h1>
-          <p className="mt-4 text-lg text-zinc-400">Get started with Intervo in 6 simple steps</p>
+          <p className="mt-4 text-lg text-zinc-400">Get started with Intervoo in 6 simple steps</p>
         </div>
       </div>
 
@@ -89,7 +89,7 @@ export default function HowItWorksPage() {
       {/* Key Features */}
       <div className="border-t border-white/5 px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <h2 className="text-2xl font-bold text-white">Why Intervo?</h2>
+          <h2 className="text-2xl font-bold text-white">Why Intervoo?</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {[
               {

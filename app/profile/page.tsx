@@ -10,11 +10,13 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Crown,
   FileText,
   Target,
   TrendingUp,
   Upload,
 } from 'lucide-react';
+import UpgradeToPro from '@/components/pro/upgrade-to-pro';
 
 type InterviewSession = {
   id: string;
@@ -34,6 +36,16 @@ type ResumeInsights = {
   interviewFocus: string[];
   estimatedExperienceYears: number;
   atsScore: number;
+};
+
+type PlanResponse = {
+  plan: 'free' | 'pro';
+  pro?: {
+    id: string;
+    name: string;
+    displayPrice: string;
+    features: string[];
+  };
 };
 
 const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024;
@@ -71,6 +83,7 @@ export default function ProfilePage() {
   const [isSavingJobDescription, setIsSavingJobDescription] = useState(false);
   const [jobDescriptionError, setJobDescriptionError] = useState('');
   const [jobDescriptionMessage, setJobDescriptionMessage] = useState('');
+  const [planData, setPlanData] = useState<PlanResponse | null>(null);
   const sessionsPerPage = 5;
 
   if (isLoaded && !isSignedIn) {
@@ -178,6 +191,25 @@ export default function ProfilePage() {
     }
 
     loadInterviewScores();
+  }, [isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    async function loadPlan() {
+      if (!isLoaded || !isSignedIn) {
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/payment/plan');
+        if (response.ok) {
+          setPlanData((await response.json()) as PlanResponse);
+        }
+      } catch {
+        // Non-critical: profile page works even if the plan check fails.
+      }
+    }
+
+    loadPlan();
   }, [isLoaded, isSignedIn]);
 
   const onResumeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -324,6 +356,76 @@ export default function ProfilePage() {
             </SignOutButton>
           </div>
         </div>
+
+        {isSignedIn && planData && planData.plan === 'pro' ? (
+          <section className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#f97316]/40 bg-[#f97316]/10 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f97316]/20 text-[#fb923c]">
+                <Crown className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-white">Intervoo Pro</p>
+                <p className="text-sm text-[#fdba74]">
+                  Lifetime access — no renewals. All Pro features are unlocked.
+                </p>
+              </div>
+            </div>
+            <span className="rounded-full bg-[#f97316]/20 px-4 py-1.5 text-xs font-semibold text-[#fdba74]">
+              Pro Member
+            </span>
+          </section>
+        ) : null}
+
+        {isSignedIn && planData && planData.plan !== 'pro' ? (
+          <section className="mb-6 rounded-2xl border border-[#f97316]/40 bg-linear-to-br from-[#1a1a1a] to-[#0f0f0f] p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f97316]/20 text-[#fb923c]">
+                <Crown className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white">Upgrade to Intervoo Pro</h2>
+                <p className="text-sm text-zinc-500">One-time payment. Lifetime access — no renewals.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <ul className="grid grid-cols-1 items-start gap-2 text-sm text-zinc-300 sm:grid-cols-2">
+                {(planData.pro?.features ?? [
+                  'Unlimited mock interviews',
+                  'AI-powered behavioral analysis',
+                  'Adaptive follow-up questions',
+                  'Detailed performance insights',
+                ]).map((feature) => (
+                  <li key={feature} className="flex items-center gap-2">
+                    <BadgeCheck className="h-4 w-4 shrink-0 text-[#f97316]" />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-[#f97316]/30 bg-[#f97316]/5 p-4">
+                <div className="text-center">
+                  <span className="text-3xl font-extrabold text-white">
+                    {planData.pro?.displayPrice ?? '₹499'}
+                  </span>
+                  <span className="ml-1 text-sm text-zinc-400">one-time</span>
+                </div>
+                <UpgradeToPro
+                  name={user?.fullName ?? undefined}
+                  email={user?.primaryEmailAddress?.emailAddress ?? undefined}
+                  onSuccess={async () => {
+                    const response = await fetch('/api/payment/plan');
+                    if (response.ok) {
+                      setPlanData((await response.json()) as PlanResponse);
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-orange-500 to-amber-500 px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-95"
+                />
+                <p className="text-xs text-zinc-500">Secured by Razorpay</p>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <section className="rounded-2xl border border-zinc-800 bg-linear-to-br from-[#1a1a1a] to-[#0f0f0f] p-6 lg:col-span-1">

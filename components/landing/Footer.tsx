@@ -18,7 +18,7 @@ export default function Footer() {
               <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-white" />
             </div>
             <span className="text-xs sm:text-sm font-bold text-white">
-              Intervo
+              Intervoo
             </span>
           </a>
 
@@ -80,7 +80,7 @@ export default function Footer() {
           {/* Copyright */}
           <div className="flex flex-col items-center gap-1.5 text-xs sm:text-sm text-zinc-600">
             <p>
-              © {new Date().getFullYear()} Intervo
+              © {new Date().getFullYear()} Intervoo
             </p>
             <p>
               Developed by{" "}

@@ -16,7 +16,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Intervo - Master Your Interview Skills',
+  title: 'Intervoo - Master Your Interview Skills',
   description: 'Practice mock interviews with AI-powered feedback to ace your job interviews',
   manifest: '/manifest.webmanifest',
   icons: {
@@ -44,6 +44,17 @@ export default function RootLayout({
       <body className={`${plusJakartaSans.className} ${plusJakartaSans.variable} ${geistMono.variable} antialiased`}>
         <ClerkProvider>
           {children}
+          {/* Tagline — shown at the bottom of every page */}
+          <p className="relative select-none py-5 text-center text-sm font-semibold tracking-[0.25em] uppercase md:text-base">
+            <a
+              href="https://arikalp.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tagline-reflect transition-opacity hover:opacity-80"
+            >
+              An imagination , Engineered by Arikalp
+            </a>
+          </p>
           <Analytics />
           {/* Register service worker in production */}
           <script dangerouslySetInnerHTML={{ __html: `(${String(() => {

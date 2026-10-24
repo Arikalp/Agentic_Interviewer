@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Intervo',
-    short_name: 'Intervo',
+    name: 'Intervoo',
+    short_name: 'Intervoo',
     description: 'AI-powered mock interviews with transcription, scoring, and behavior insights.',
     id: '/',
     start_url: '/',

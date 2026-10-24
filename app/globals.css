@@ -73,6 +73,35 @@ body {
   background-clip: text;
 }
 
+/* Reflective grey glow for the bottom tagline — a soft sheen sweeps
+   across the letters like light glancing off a surface. */
+@keyframes tagline-sheen {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.tagline-reflect {
+  background: linear-gradient(
+    110deg,
+    #52525b 0%,
+    #9ca3af 28%,
+    #e4e4e7 42%,
+    #9ca3af 56%,
+    #52525b 82%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: tagline-sheen 6s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(156, 163, 175, 0.35))
+    drop-shadow(0 0 20px rgba(156, 163, 175, 0.18));
+}
+
 /* Glass card utility */
 .glass-card {
   background: rgba(255, 255, 255, 0.05);

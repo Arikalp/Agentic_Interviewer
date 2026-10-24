@@ -24,7 +24,7 @@ const features = [
     icon: Video,
     title: "AI Video Interview",
     description:
-      "Engage in real-time video interviews with an AI interviewer from Intervo that adapts to your responses.",
+      "Engage in real-time video interviews with an AI interviewer from Intervoo that adapts to your responses.",
   },
   {
     icon: MessageSquare,

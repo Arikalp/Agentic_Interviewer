@@ -62,7 +62,7 @@ export default function Navbar() {
                 <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
               </div>
               <span className="text-base sm:text-lg font-bold text-white">
-                Intervo
+                Intervoo
               </span>
             </a>
 

@@ -16,7 +16,7 @@ export default function DemoPage() {
             ← Back to Home
           </Link>
           <h1 className="text-4xl font-bold text-white sm:text-5xl">Demo</h1>
-          <p className="mt-4 text-lg text-zinc-400">See Intervo in action with a live demo</p>
+          <p className="mt-4 text-lg text-zinc-400">See Intervoo in action with a live demo</p>
         </div>
       </div>
 

@@ -74,7 +74,7 @@ export default function FeaturesPage() {
       <div className="border-t border-white/5 px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl text-center">
           <h2 className="text-3xl font-bold text-white">Ready to get started?</h2>
-          <p className="mt-4 text-lg text-zinc-400">Start practicing interviews with Intervo today</p>
+          <p className="mt-4 text-lg text-zinc-400">Start practicing interviews with Intervoo today</p>
           <Link
             href="/interview"
             className="mt-8 inline-flex rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-8 py-3 font-medium text-white transition-all hover:shadow-lg hover:shadow-orange-500/50"

@@ -1040,7 +1040,7 @@ export default function InterviewPage() {
           </section>
 
           <section className="rounded-2xl border border-orange-500/20 bg-linear-to-br from-[#2a1406] via-[#1b120d] to-[#0f0f0f] p-6">
-            <p className="mb-2 text-xs uppercase tracking-wider text-[#fb923c]">Intervo</p>
+            <p className="mb-2 text-xs uppercase tracking-wider text-[#fb923c]">Intervoo</p>
 
             {isLoadingQuestions ? (
               <p className="text-sm text-zinc-400">Generating resume-based interview questions...</p>

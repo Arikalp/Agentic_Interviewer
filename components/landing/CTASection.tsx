@@ -49,7 +49,7 @@ export default function CTASection() {
           </h2>
           <p className="mx-auto mb-6 sm:mb-8 max-w-lg text-sm sm:text-base md:text-lg text-zinc-400">
             Join thousands of candidates who have improved their interview
-            skills and landed their dream jobs with Intervo.
+            skills and landed their dream jobs with Intervoo.
           </p>
 
           <motion.div

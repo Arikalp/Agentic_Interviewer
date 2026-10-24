@@ -1,8 +1,8 @@
-# Intervo — Agentic AI Interview Platform
+# Intervoo — Agentic AI Interview Platform
 
 > **Live app:** [https://intervoo.vercel.app/](https://intervoo.vercel.app/)
 
-Intervo is a full-stack, AI-powered mock interview platform built with Next.js. It generates resume-tailored interview questions, conducts realistic voice+video interview sessions, evaluates answers in real time, and now features a **full RAG (Retrieval-Augmented Generation) pipeline** that makes the AI interviewer remember your resume and past answers — producing intelligent, adaptive follow-up questions instead of generic ones.
+Intervoo is a full-stack, AI-powered mock interview platform built with Next.js. It generates resume-tailored interview questions, conducts realistic voice+video interview sessions, evaluates answers in real time, and now features a **full RAG (Retrieval-Augmented Generation) pipeline** that makes the AI interviewer remember your resume and past answers — producing intelligent, adaptive follow-up questions instead of generic ones.
 
 ---
 
@@ -21,6 +21,7 @@ Intervo is a full-stack, AI-powered mock interview platform built with Next.js. 
 | **Performance Dashboard** | Per-session scores, behavior metrics per answer, personalized improvement guidance |
 | **PWA Support** | Installable as a Progressive Web App with service worker and web manifest |
 | **Authentication** | Clerk-powered sign up / sign in with protected routes |
+| **Pro Membership (Razorpay)** | One-time ₹499 upgrade via Razorpay Checkout — unlocks unlimited interview attempts and disables all ads for Pro members |
 
 ---
 
@@ -53,6 +54,7 @@ Intervo is a full-stack, AI-powered mock interview platform built with Next.js. 
 | Technology | Role |
 |-----------|------|
 | **Clerk** | Authentication, user sessions, protected routes |
+| **Razorpay** | One-time Pro upgrade payments — server-side order creation, signature verification, webhook confirmation |
 | **Vercel Analytics** | Usage tracking |
 
 ### On-Device AI (Browser)
@@ -374,6 +376,70 @@ Fetch all scored answers for the current user's session.
 
 ---
 
+### `POST /api/payment/order`
+Creates a Razorpay order for the one-time Pro upgrade. Returns `orderId`, `amount`, `currency`, and `keyId` for the client-side Checkout.
+
+---
+
+### `POST /api/payment/verify`
+Verifies the `HMAC-SHA256(order_id|payment_id, key_secret)` checkout signature and activates Pro for the signed-in user.
+
+---
+
+### `POST /api/payment/webhook`
+Razorpay `payment.captured` webhook (signature-verified) — server-to-server backup that activates Pro if the client never reaches the verify route.
+
+---
+
+### `GET /api/payment/plan`
+Returns the current user's plan (`free` / `pro`) plus Pro plan metadata (price, features).
+
+---
+
+## Pro Membership
+
+Intervoo offers a **one-time Pro upgrade** (₹499 — pay once, lifetime access, no renewals) powered by **Razorpay**.
+
+### What Pro Members Get
+
+| Benefit | Free | Pro |
+|---------|------|-----|
+| **Interview attempts** | Limited | **Unlimited attempts, no cap** |
+| **Ads** | Shown between sessions | **All ads disabled — zero interruptions** |
+| AI-powered behavioral analysis | ✔ | ✔ |
+| Adaptive RAG follow-up questions | ✔ | ✔ |
+| Detailed performance insights | ✔ | ✔ |
+
+### How the Payment Flow Works
+
+```
+User clicks "Upgrade to Pro" (pricing / profile page)
+        ↓
+POST /api/payment/order        ← server creates a Razorpay order
+        ↓
+Razorpay Checkout opens        ← UPI, cards, netbanking, wallets
+        ↓
+POST /api/payment/verify       ← server verifies order|payment signature
+        ↓
+users collection: { plan: "pro", proPaymentId, proOrderId }
+                                ↑ webhook fallback:
+POST /api/payment/webhook       ← Razorpay "payment.captured" event
+```
+
+- Upgrade state is stored per Clerk `userId` in the MongoDB `users` collection.
+- Activation is **idempotent**: payments never double-activate.
+- Gated server routes use `isUserPro()` from `lib/plan.ts`.
+- Ads are hidden for Pro members; free members keep seeing the AdSense placements.
+
+### Configuring Razorpay
+
+1. Generate **Test Keys** in the Razorpay Dashboard (Settings → API Keys) and set `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`.
+2. Add a webhook (Settings → Webhooks) pointing to `/api/payment/webhook` with the `payment.captured` event and a matching `RAZORPAY_WEBHOOK_SECRET`.
+3. Test mode accepts test UPI/card details — e.g. card `4111 1111 1111 1111`, any future expiry.
+4. Go live with KYC verification and the same env names — no code changes.
+
+---
+
 ## Environment Variables
 
 ```bash
@@ -388,6 +454,12 @@ GROQ_MODEL=llama-3.3-70b-versatile   # optional, this is the default
 # MongoDB
 MONGODB_URI=mongodb+srv://...
 MONGODB_DB_NAME=agentic_interviewer  # optional, this is the default
+
+# Razorpay (Pro membership, one-time payment)
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...           # webhook signature verification
+PRO_PRICE_PAISE=49900                 # optional, ₹499.00 in paise (default)
 ```
 
 ---
