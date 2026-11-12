@@ -1,3 +1,6 @@
 {
-  "buildCommand": "node scripts/trim-native-binaries.mjs && next build"
+  "buildCommand": "node scripts/trim-native-binaries.cjs && next build",
+  "env": {
+    "ONNXRUNTIME_NODE_INSTALL_CUDA": "skip"
+  }
 }

@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev --port 8000",
     "build": "next build",
-    "trim:native": "node scripts/trim-native-binaries.mjs",
-    "vercel-build": "node scripts/trim-native-binaries.mjs && next build",
+    "trim:native": "node scripts/trim-native-binaries.cjs",
+    "vercel-build": "node scripts/trim-native-binaries.cjs && next build",
     "start": "next start --port 8000",
     "format": "biome format .",
     "lint": "biome lint .",
