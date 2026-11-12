@@ -4,6 +4,10 @@
 
 Intervoo is a full-stack, AI-powered mock interview platform built with Next.js. It generates resume-tailored interview questions, conducts realistic voice+video interview sessions, evaluates answers in real time, and now features a **full RAG (Retrieval-Augmented Generation) pipeline** that makes the AI interviewer remember your resume and past answers — producing intelligent, adaptive follow-up questions instead of generic ones.
 
+<p align="center">
+  <img src="./public/interview_demo.png" alt="Intervoo Live Interview Platform" width="100%" />
+</p>
+
 ---
 
 ## What It Does
@@ -67,11 +71,23 @@ Intervoo is a full-stack, AI-powered mock interview platform built with Next.js.
 
 ---
 
+## System Architecture
+
+<p align="center">
+  <img src="./public/infographics/system-architecture.svg" alt="Intervoo System Architecture" width="100%" />
+</p>
+
+---
+
 ## RAG Architecture
 
 The RAG pipeline turns the interviewer from a stateless Q&A bot into a session-aware agent that remembers your resume and the entire conversation.
 
 ### Resume Pipeline (triggered on upload)
+
+<p align="center">
+  <img src="./public/infographics/resume-rag-pipeline.svg" alt="Resume Ingestion and Vector Search Pipeline" width="100%" />
+</p>
 
 ```
 Upload Resume (PDF / DOCX / TXT)
@@ -94,6 +110,10 @@ Upload Resume (PDF / DOCX / TXT)
 ### Interview Turn Pipeline (per candidate answer)
 
 The pipeline has **two phases** separated by whether `latestAnswer` is present.
+
+<p align="center">
+  <img src="./public/infographics/langgraph-rag-workflow.svg" alt="LangGraph 6-Node Adaptive Interview Agent Workflow" width="100%" />
+</p>
 
 #### Phase 1 — Session Opener (Turn 0, no latestAnswer)
 
@@ -412,6 +432,10 @@ Intervoo offers a **one-time Pro upgrade** (₹499 — pay once, lifetime access
 
 ### How the Payment Flow Works
 
+<p align="center">
+  <img src="./public/infographics/payment-flow.svg" alt="Razorpay Pro Upgrade and Payment Verification Flow" width="100%" />
+</p>
+
 ```
 User clicks "Upgrade to Pro" (pricing / profile page)
         ↓
@@ -531,6 +555,10 @@ npm run check     # Biome lint + format check
 ## Behavior Analysis (On-Device)
 
 The interview page runs a real-time behavior analysis pipeline entirely in the browser — no data leaves the device.
+
+<p align="center">
+  <img src="./public/infographics/behavior-analysis-pipeline.svg" alt="On-Device Behavioral and Emotion Analysis Pipeline" width="100%" />
+</p>
 
 **Pipeline:**
 1. **MediaPipe Face Landmarker** tracks face landmarks at 30 fps from the webcam feed

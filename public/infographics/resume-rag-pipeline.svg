@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0e1a"/>
+      <stop offset="50%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#0a0e1a"/>
+    </linearGradient>
+    <linearGradient id="step-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="step-purple" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="step-emerald" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="step-amber" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+
+    <filter id="shadow2" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+
+    <marker id="arrow2" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#38bdf8" />
+    </marker>
+    <marker id="arrow2-purple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#c084fc" />
+    </marker>
+    <marker id="arrow2-down" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#38bdf8" />
+    </marker>
+  </defs>
+
+  <style>
+    .title { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 800; fill: #ffffff; }
+    .subtitle { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 400; fill: #94a3b8; }
+    .step-num { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 800; font-size: 11px; fill: #ffffff; }
+    .step-title { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 700; font-size: 15px; fill: #f8fafc; }
+    .step-sub { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 600; font-size: 11px; }
+    .step-text { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 400; font-size: 12px; fill: #94a3b8; }
+    .code-text { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 11px; fill: #38bdf8; }
+    .tag { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 600; font-size: 10px; }
+  </style>
+
+  <!-- Canvas -->
+  <rect width="1200" height="560" rx="16" fill="url(#bg2)" stroke="#334155" stroke-width="1.2"/>
+
+  <!-- Grid decoration -->
+  <g opacity="0.05">
+    <path d="M 0,90 L 1200,90 M 0,230 L 1200,230 M 0,380 L 1200,380" stroke="#ffffff" stroke-width="1"/>
+    <path d="M 300,0 L 300,560 M 600,0 L 600,560 M 900,0 L 900,560" stroke="#ffffff" stroke-width="1"/>
+  </g>
+
+  <!-- Header -->
+  <g transform="translate(60, 42)">
+    <rect x="0" y="0" width="40" height="40" rx="10" fill="url(#step-cyan)"/>
+    <path d="M 12,20 L 20,28 L 28,12" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="54" y="20" class="title" font-size="22">Resume Ingestion &amp; Vector Embeddings Pipeline</text>
+    <text x="54" y="38" class="subtitle" font-size="13">Triggered automatically on resume upload: text parsing, LLM deep insights, smart chunking, and MongoDB Vector Indexing</text>
+  </g>
+
+  <!-- STEP 1: Upload & Ingestion -->
+  <g transform="translate(60, 115)">
+    <rect width="330" height="180" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1.5" filter="url(#shadow2)"/>
+    <rect width="330" height="3" rx="1.5" fill="url(#step-cyan)"/>
+    
+    <rect x="18" y="16" width="22" height="22" rx="6" fill="#06b6d4"/>
+    <text x="25" y="31" class="step-num">1</text>
+    <text x="48" y="32" class="step-title">Document Upload</text>
+    <text x="18" y="52" class="tag" fill="#38bdf8">POST /api/resume • Multer/FormData</text>
+    
+    <text x="18" y="78" class="step-text">Supported Formats:</text>
+    <rect x="18" y="86" width="60" height="24" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="32" y="102" class="code-text">PDF</text>
+    <rect x="86" y="86" width="68" height="24" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="96" y="102" class="code-text">DOCX</text>
+    <rect x="162" y="86" width="60" height="24" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="176" y="102" class="code-text">TXT</text>
+
+    <text x="18" y="132" class="step-text">Parsed into clean UTF-8 text buffer via</text>
+    <text x="18" y="148" class="code-text">extractResumeText() (pdf-parse / mammoth)</text>
+  </g>
+
+  <!-- STEP 2: Groq Structured Analysis -->
+  <g transform="translate(435, 115)">
+    <rect width="330" height="180" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1.5" filter="url(#shadow2)"/>
+    <rect width="330" height="3" rx="1.5" fill="url(#step-purple)"/>
+    
+    <rect x="18" y="16" width="22" height="22" rx="6" fill="#8b5cf6"/>
+    <text x="25" y="31" class="step-num">2</text>
+    <text x="48" y="32" class="step-title">Groq LLM Analysis</text>
+    <text x="18" y="52" class="tag" fill="#c084fc">qwen/qwen3.8-27b • analyzeResumeWithGroq()</text>
+    
+    <text x="18" y="76" class="step-text">Generates structured JSON insights:</text>
+    <text x="18" y="96" class="step-text">• Skills Inventory (tech &amp; domain tags)</text>
+    <text x="18" y="114" class="step-text">• Candidate Strengths &amp; Experience Level</text>
+    <text x="18" y="132" class="step-text">• ATS Compatibility Score (0 - 100)</text>
+    <text x="18" y="150" class="step-text">• Suggested Roles &amp; Seniority Matching</text>
+  </g>
+
+  <!-- STEP 3: Section-Aware Chunker -->
+  <g transform="translate(810, 115)">
+    <rect width="330" height="180" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1.5" filter="url(#shadow2)"/>
+    <rect width="330" height="3" rx="1.5" fill="url(#step-emerald)"/>
+    
+    <rect x="18" y="16" width="22" height="22" rx="6" fill="#10b981"/>
+    <text x="25" y="31" class="step-num">3</text>
+    <text x="48" y="32" class="step-title">Section-Aware Chunker</text>
+    <text x="18" y="52" class="tag" fill="#34d399">lib/rag/chunker.ts • Priority Slicing</text>
+    
+    <text x="18" y="76" class="step-text">Preserves contextual boundaries:</text>
+    <text x="18" y="96" class="step-text">• Projects &gt; Experience &gt; Skills</text>
+    <text x="18" y="114" class="step-text">• Education &gt; Certifications</text>
+    <text x="18" y="132" class="step-text">• Fallback: Sentence-level chunking</text>
+    <text x="18" y="150" class="step-text">• Window: ~300 chars with section metadata</text>
+  </g>
+
+  <!-- Connectors Row 1 -->
+  <path d="M 390,205 L 428,205" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow2)"/>
+  <path d="M 765,205 L 803,205" fill="none" stroke="#c084fc" stroke-width="2" marker-end="url(#arrow2-purple)"/>
+
+  <!-- Row 1 to Row 2 turn -->
+  <path d="M 975,295 L 975,345" fill="none" stroke="#10b981" stroke-width="2" marker-end="url(#arrow2-down)"/>
+
+  <!-- STEP 4: Local Embedding Engine -->
+  <g transform="translate(810, 355)">
+    <rect width="330" height="165" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1.5" filter="url(#shadow2)"/>
+    <rect width="330" height="3" rx="1.5" fill="url(#step-emerald)"/>
+    
+    <rect x="18" y="16" width="22" height="22" rx="6" fill="#10b981"/>
+    <text x="25" y="31" class="step-num">4</text>
+    <text x="48" y="32" class="step-title">FastEmbed Vectorizer</text>
+    <text x="18" y="52" class="tag" fill="#34d399">BAAI/bge-small-en-v1.5 • embedTexts()</text>
+    
+    <text x="18" y="76" class="step-text">• 384-dimensional dense float vectors</text>
+    <text x="18" y="94" class="step-text">• Local ONNX Runtime execution (fast)</text>
+    <text x="18" y="112" class="step-text">• Zero external embedding API costs/limits</text>
+    <text x="18" y="130" class="step-text">• Cosine distance optimized representation</text>
+  </g>
+
+  <!-- Connectors Row 2 (Right to Left) -->
+  <path d="M 810,435 L 772,435" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow2)"/>
+
+  <!-- STEP 5: MongoDB Atlas Vector Search Upsert -->
+  <g transform="translate(435, 355)">
+    <rect width="330" height="165" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1.5" filter="url(#shadow2)"/>
+    <rect width="330" height="3" rx="1.5" fill="url(#step-amber)"/>
+    
+    <rect x="18" y="16" width="22" height="22" rx="6" fill="#f59e0b"/>
+    <text x="25" y="31" class="step-num">5</text>
+    <text x="48" y="32" class="step-title">Atlas Vector Upsert</text>
+    <text x="18" y="52" class="tag" fill="#fbbf24">Collection: resume_chunks</text>
+    
+    <text x="18" y="76" class="step-text">• Replaces candidate's prior resume vectors</text>
+    <text x="18" y="94" class="step-text">• Indexed by: <tspan class="code-text">resume_vector_index</tspan></text>
+    <text x="18" y="112" class="step-text">• Filter field: <tspan class="code-text">userId</tspan> (strict candidate isolation)</text>
+    <text x="18" y="130" class="step-text">• Document metadata: section, content, text</text>
+  </g>
+
+  <path d="M 435,435 L 397,435" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow2)"/>
+
+  <!-- STEP 6: Ready for Live Interview -->
+  <g transform="translate(60, 355)">
+    <rect width="330" height="165" rx="12" fill="#0f172a" stroke="#10b981" stroke-width="1.8" filter="url(#shadow2)"/>
+    <rect width="330" height="3" rx="1.5" fill="url(#step-cyan)"/>
+    
+    <rect x="18" y="16" width="22" height="22" rx="6" fill="#06b6d4"/>
+    <text x="25" y="31" class="step-num">6</text>
+    <text x="48" y="32" class="step-title">Ready for Interview Graph</text>
+    <text x="18" y="52" class="tag" fill="#38bdf8">LangGraph RAG Ready</text>
+    
+    <text x="18" y="76" class="step-text">Resume is now fully searchable in real-time!</text>
+    <text x="18" y="96" class="step-text">When candidate speaks, LangGraph retrieves</text>
+    <text x="18" y="114" class="step-text">top 3 matching resume sections via</text>
+    <text x="18" y="132" class="code-text">$vectorSearch to anchor the next question</text>
+  </g>
+</svg>
+
