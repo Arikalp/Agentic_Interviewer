@@ -1,3 +1,5 @@
+import { existsSync } from 'fs';
+import path from 'path';
 import { EmbeddingModel, FlagEmbedding } from 'fastembed';
 
 /**
@@ -6,9 +8,23 @@ import { EmbeddingModel, FlagEmbedding } from 'fastembed';
  * Dimensions : 384
  * Similarity : Cosine
  *
- * The ONNX model (~100 MB) is downloaded on the first call and cached
- * locally by fastembed. Subsequent calls reuse the loaded model.
+ * The ONNX model is cached locally by fastembed. In production (Vercel
+ * serverless) the working directory is read-only, so fastembed must never
+ * attempt to write its cache there. The model is bundled with the deployment
+ * via outputFileTracingIncludes (see next.config.js) and read directly from
+ * local_cache; if it is missing we fall back to /tmp, which is writable.
  */
+
+const bundledModelPath = path.join(
+  process.cwd(),
+  'local_cache',
+  'Qdrant_bge-small-en-v1.5-onnx-Q',
+  'model_optimized.onnx',
+);
+
+const cacheDir = existsSync(bundledModelPath)
+  ? path.join(process.cwd(), 'local_cache')
+  : '/tmp/fastembed-cache';
 
 let embeddingModel: FlagEmbedding | null = null;
 
@@ -16,6 +32,9 @@ async function getModel(): Promise<FlagEmbedding> {
   if (!embeddingModel) {
     embeddingModel = await FlagEmbedding.init({
       model: EmbeddingModel.BGESmallENV15,
+      cacheDir,
+      // No console progress bars in serverless logs.
+      showDownloadProgress: false,
     });
   }
   return embeddingModel;

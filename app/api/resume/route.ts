@@ -6,6 +6,10 @@ import { analyzeResumeWithGroq, normalizeResumeInsights } from '@/lib/resume-ana
 import { extractResumeText } from '@/lib/resume-parser';
 import { embedAndStoreResume } from '@/lib/rag';
 
+// Cold start may need to load the 63MB bge-small ONNX model before RAG
+// indexing runs, so allow up to 60s instead of the default serverless timeout.
+export const maxDuration = 60;
+
 // Maximum length of job description string allowed to be processed to prevent LLM prompt overflows
 const MAX_JOB_DESCRIPTION_LENGTH = 8000;
 

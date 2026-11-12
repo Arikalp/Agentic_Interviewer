@@ -6,6 +6,10 @@ import { createInitialInterviewState } from '@/models/InterviewState';
 import type { InterviewState } from '@/models/InterviewState';
 import { INTRO_INTERVIEW_QUESTION } from '@/lib/resume-analysis';
 
+// Cold start may need to load the 63MB bge-small ONNX model before the
+// first embedding, so allow up to 60s instead of the default serverless timeout.
+export const maxDuration = 60;
+
 /**
  * POST /api/interview/rag-question
  *
