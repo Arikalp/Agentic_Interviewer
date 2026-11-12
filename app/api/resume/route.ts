@@ -167,7 +167,7 @@ export async function PATCH(request: Request) {
  * POST handler for /api/resume
  * Handles uploading the resume file (PDF or text) and extracting text.
  * Calculates a SHA-256 hash of the extracted text. If the hash matches an already analyzed resume 
- * for the user, it skips expensive Llama/Groq AI processing and directly returns the cached insights.
+ * for the user, it skips expensive Groq AI processing and directly returns the cached insights.
  * Otherwise, calls the Groq AI service to extract structured metrics/experiences and updates the DB.
  */
 export async function POST(request: Request) {
@@ -277,7 +277,7 @@ export async function POST(request: Request) {
           insights,
           jobDescription: jobDescriptionToPersist,
           updatedAt: now,
-          model: process.env.GROQ_MODEL || 'qwen/qwen3.6-27b',
+          model: process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
         },
         $setOnInsert: {
           createdAt: now,

@@ -39,7 +39,7 @@ Intervoo is a full-stack, AI-powered mock interview platform built with Next.js.
 ### AI & LLM
 | Technology | Role |
 |-----------|------|
-| **Groq API** (`llama-3.3-70b-versatile`) | Resume analysis, question generation, answer evaluation |
+| **Groq API** (`qwen/qwen3.8-27b`) | Resume analysis, question generation, answer evaluation |
 | **FastEmbed** (`BAAI/bge-small-en-v1.5`) | Local ONNX-based text embeddings — 384 dimensions, cosine similarity |
 | **LangGraph** (`@langchain/langgraph`) | 6-node stateful interview graph — retrieve → plan → generate → remember |
 | **OpenAI Realtime API** | Speech → transcript pipeline |
@@ -449,7 +449,7 @@ CLERK_SECRET_KEY=sk_...
 
 # Groq LLM
 GROQ_API_KEY=gsk_...
-GROQ_MODEL=llama-3.3-70b-versatile   # optional, this is the default
+GROQ_MODEL=qwen/qwen3.8-27b   # optional, this is the default
 
 # MongoDB
 MONGODB_URI=mongodb+srv://...

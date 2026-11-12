@@ -134,7 +134,7 @@ export async function POST(request: Request) {
           difficulty,
           questions,
           updatedAt: now,
-          model: process.env.GROQ_MODEL || 'qwen/qwen3.6-27b',
+          model: process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
         },
         $setOnInsert: {
           createdAt: now,
