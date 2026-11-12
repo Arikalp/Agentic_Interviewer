@@ -6,10 +6,22 @@
 // the Linux native binaries plus the pre-downloaded bge-small ONNX model
 // (local_cache is committed to git, so it is present at build time) for
 // every route that reaches the embedder.
+// Keys are URL route globs matched with picomatch (see Next.js docs).
 const nativeModuleIncludes = [
-  './node_modules/onnxruntime-node/bin/napi-v3/linux/**',
-  './node_modules/@anush008/tokenizers-linux-*/**',
+  // Vercel serverless functions run on Linux x64; arm64 builds are never used.
+  './node_modules/onnxruntime-node/bin/napi-v3/linux/x64/**',
+  './node_modules/@anush008/tokenizers-linux-x64-*/**',
   './local_cache/**',
+];
+
+// Never bundle macOS/Windows native binaries into server traces —
+// serverless functions run on Linux x64 and every byte counts against
+// Vercel's function size limit.
+const nativeModuleExcludes = [
+  './node_modules/onnxruntime-node/bin/napi-v3/darwin/**',
+  './node_modules/onnxruntime-node/bin/napi-v3/win32/**',
+  './node_modules/@anush008/tokenizers-darwin-*/**',
+  './node_modules/@anush008/tokenizers-win32-*/**',
 ];
 
 const nextConfig = {
@@ -22,14 +34,14 @@ const nextConfig = {
     'onnxruntime-node',
   ],
 
-  // Keys cover both URL-path and source-path styles to work across builds.
   outputFileTracingIncludes: {
-    // URL-path keys
     '/api/resume/**': nativeModuleIncludes,
     '/api/interview/rag-question/**': nativeModuleIncludes,
-    // Source-path keys (fallback, ignored if unmatched)
-    'app/api/resume/**': nativeModuleIncludes,
-    'app/api/interview/rag-question/**': nativeModuleIncludes,
+  },
+
+  outputFileTracingExcludes: {
+    '/api/resume/**': nativeModuleExcludes,
+    '/api/interview/rag-question/**': nativeModuleExcludes,
   },
 
   // Silence the "multiple lockfiles" workspace root warning
